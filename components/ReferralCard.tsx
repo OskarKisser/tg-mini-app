@@ -1,9 +1,11 @@
 "use client";
 
+import { Gift } from "lucide-react";
 import { toast } from "sonner";
 import { getTelegramWebApp, triggerHaptic } from "@/lib/telegram";
 import { useReferral } from "@/lib/hooks/useReferral";
 import { REFEREE_DISCOUNT_RUB, REFERRER_REWARD_RUB, formatRub } from "@/lib/referral";
+import { cn } from "@/lib/utils";
 
 const SHARE_TEXT = `Выпускаю музыку через omf — по моей ссылке скидка ${formatRub(REFEREE_DISCOUNT_RUB)} на первый релиз.`;
 
@@ -97,6 +99,29 @@ export function ReferralCard() {
         </p>
       ) : null}
     </section>
+  );
+}
+
+/** Тихая ссылка под главной кнопкой пустого экрана. Только в Telegram, когда ссылка готова. */
+export function ReferralInviteLink({ className }: { className?: string }) {
+  const { data } = useReferral();
+  if (!data?.link) return null;
+  const link = data.link;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        triggerHaptic("light");
+        shareReferralLink(link);
+      }}
+      className={cn(
+        "omf-focus inline-flex items-center justify-center gap-[7px] rounded-full px-3 py-2 text-[13px] text-omf-graphite transition-colors hover:text-omf-ink",
+        className
+      )}
+    >
+      <Gift className="h-[15px] w-[15px] text-omf-faint" strokeWidth={1.5} aria-hidden />
+      Пригласить друга, +{formatRub(REFERRER_REWARD_RUB)}
+    </button>
   );
 }
 

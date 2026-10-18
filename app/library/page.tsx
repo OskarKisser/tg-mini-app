@@ -1,14 +1,13 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Plus, RefreshCw, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PullRefreshBrand } from "@/components/PullRefreshBrand";
-import { ReleaseCard } from "@/components/ReleaseCard";
-import { ReferralInviteRow } from "@/components/ReferralCard";
-import { REFEREE_DISCOUNT_RUB, formatRub } from "@/lib/referral";
+import { ReleaseRow } from "@/components/library/ReleaseRow";
+import { ReferralInviteLink } from "@/components/ReferralCard";
 import { ReferralWelcome, useReferralDiscountPending } from "@/components/ReferralWelcome";
-import { ReleaseSleeve } from "@/components/ReleaseSleeve";
+import { FirstReleaseEmpty } from "@/components/library/FirstReleaseEmpty";
 import { LibraryReleaseSkeletonGrid } from "@/components/ui/LibrarySkeleton";
 import { reopenRejectedRelease, resumeDraftFromRelease } from "@/features/release/createRelease/actions";
 import { prepareNewReleaseDraft, useCreateReleaseDraftStore } from "@/features/release/createRelease/store";
@@ -23,21 +22,17 @@ import { useIsTelegramMiniApp } from "@/lib/hooks/useIsTelegramMiniApp";
 import { pickProfileGreetingName, useAuthProfile } from "@/lib/hooks/useAuthProfile";
 import { cn } from "@/lib/utils";
 import { RejectionNotice } from "@/components/RejectionNotice";
-import {
-  collectLibraryActions,
-  DSP_REVIEW_DAYS_TEXT,
-  getReleaseNextStep,
-  NEXT_STEP_TONE_CLASS,
-  type LibraryAction
-} from "@/lib/release-next-step";
+import { getReleaseNextStep, NEXT_STEP_TONE_CLASS } from "@/lib/release-next-step";
 import { describeRejection, type RejectionSummary } from "@/lib/rejection-reasons";
 import { getTelegramInitDataForApiHeader, getTelegramUserIdForSupabaseRequests } from "@/lib/telegram";
-import { RefreshIcon } from "@/components/RefreshIcon";
 import { FullScreenLoader } from "@/components/FullScreenLoader";
 
 
 type LibraryStatusFilter = "all" | "processing" | "ready" | "failed";
 type LibraryView = "all" | "drafts" | "moderation";
+
+/** Фильтр по статусу нужен, когда релизов много; на коротком списке статус и так виден у каждой строки. */
+const STATUS_FILTER_MIN_RELEASES = 5;
 
 const STATUS_FILTER_CHIPS: { id: LibraryStatusFilter; label: string }[] = [
   { id: "all", label: "Все" },
@@ -45,22 +40,6 @@ const STATUS_FILTER_CHIPS: { id: LibraryStatusFilter; label: string }[] = [
   { id: "ready", label: "Приняты" },
   { id: "failed", label: "Отклонены" }
 ];
-
-function formatReleaseTypeLabel(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const normalized = value.toLowerCase();
-  if (normalized === "single") return "Сингл";
-  if (normalized === "ep") return "EP";
-  if (normalized === "album") return "Альбом";
-  return value;
-}
-
-function formatShortDate(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }).replace(".", "");
-}
 
 function parseLibraryView(value: string | null): LibraryView {
   if (value === "drafts" || value === "moderation") return value;
@@ -379,35 +358,9 @@ function LibraryPageInner() {
     router.push(`/release/${release.id}`);
   };
 
-  const libraryActions = useMemo(() => collectLibraryActions(releases), [releases]);
-
-  const onLibraryAction = (action: LibraryAction) => {
-    if (action.count === 1) {
-      const release = releases.find((r) => r.id === action.firstId);
-      if (release) openRelease(release);
-      return;
-    }
-    hapticMap.impactLight();
-    if (action.kind === "fix") {
-      setStatusFilter("failed");
-      return;
-    }
-    router.push("/library?view=drafts");
-  };
-
-  const renderReleaseBlock = (release: ReleaseListRow, listIndex: number) => {
-    const displayTitle = getReleaseDisplayTitle(release);
+  const renderReleaseRow = (release: ReleaseListRow, listIndex: number) => {
     const normalized = normalizeReleaseStatus(release.status);
     const isDraft = normalized === "draft" || normalized === "pending";
-    const isResumingDraft = isDraft && resumingId === release.id;
-    const subtitle = [
-      formatReleaseTypeLabel(release.release_type ?? null),
-      formatShortDate(release.created_at)
-    ]
-      .filter(Boolean)
-      .join(" · ");
-
-    const isNew = isUnseenDecision(normalized, seenStatuses[release.id]);
     const nextStep = getReleaseNextStep({
       status: release.status,
       smartLink: release.smart_link,
@@ -415,66 +368,54 @@ function LibraryPageInner() {
     });
 
     return (
-      <ReleaseCard
+      <ReleaseRow
         key={release.id}
         id={release.id}
-        title={displayTitle}
+        title={getReleaseDisplayTitle(release) || "Без названия"}
         artist={release.artist_name}
-        subtitle={subtitle}
-        status={normalized}
         coverUrl={release.artwork_url}
-        priority={listIndex < 4}
-        busy={isResumingDraft}
-        isNew={isNew}
-        nextStep={{ text: nextStep.cardLine, className: NEXT_STEP_TONE_CLASS[nextStep.tone] }}
+        kind={nextStep.kind}
+        statusLine={{ text: nextStep.cardLine || nextStep.title, className: NEXT_STEP_TONE_CLASS[nextStep.tone] }}
+        priority={listIndex < 6}
+        busy={isDraft && resumingId === release.id}
+        isNew={isUnseenDecision(normalized, seenStatuses[release.id])}
         onClick={() => openRelease(release)}
       />
     );
   };
-
-  const newReleaseTile = (
-    <button
-      type="button"
-      onClick={handleCreate}
-      className="omf-focus block w-full min-w-0 text-left transition-transform duration-150 active:scale-[0.98]"
-    >
-      <span className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-sleeve border-[1.5px] border-dashed border-omf-line-strong text-omf-graphite transition-colors hover:border-omf-graphite hover:text-omf-ink">
-        <Plus className="h-7 w-7" strokeWidth={1.75} aria-hidden />
-      </span>
-      <span className="mt-2.5 block text-[14px] font-medium leading-tight text-omf-ink">Новый релиз</span>
-      <span className="mt-0.5 block text-[12px] text-omf-graphite">Сингл, EP или альбом</span>
-    </button>
-  );
 
   const heroLabel =
     selectedView === "drafts" ? "Твои черновики" : selectedView === "moderation" ? "На модерации" : "Твои релизы";
 
   return (
     <div className="min-h-app text-omf-ink">
-      <PullRefreshBrand />
+      <PullRefreshBrand
+        onRefresh={() => {
+          hapticMap.impactLight();
+          void mutate(undefined, { revalidate: true });
+        }}
+      />
       {isTelegram ? <ReferralWelcome onCreate={handleCreate} /> : null}
 
       <div className={cn("mx-auto w-full px-1 pb-40 pt-6", isWeb ? "max-w-[1100px]" : "max-w-lg")}>
-        <header className="mb-8 flex items-start justify-between gap-4">
+        {showEmptyState && isEmpty ? null : (
+        <header className="mb-6 flex items-end justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[13px] text-omf-graphite">{heroLabel}</p>
-            <h1 className="mt-1 break-words text-[40px] font-extrabold leading-[0.92] tracking-[-0.045em] text-omf-ink sm:text-[52px]">
+            <h1 className="mt-1 break-words text-[36px] font-bold leading-[0.95] tracking-[-0.05em] text-omf-ink sm:text-[48px]">
               {heroArtistName}
             </h1>
           </div>
           <button
             type="button"
-            onClick={() => {
-              hapticMap.impactLight();
-              void mutate(undefined, { revalidate: true });
-            }}
-            disabled={isValidating || showAuthWait}
-            aria-label="Обновить список"
-            className="omf-focus mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-omf-graphite transition-colors hover:bg-omf-surface hover:text-omf-ink disabled:opacity-40"
+            onClick={handleCreate}
+            aria-label="Новый релиз"
+            className="omf-focus mt-1 flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-omf-ink text-omf-bg transition-transform active:scale-95"
           >
-            <RefreshIcon icon={RefreshCw} spinning={isValidating} />
+            <Plus className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>
         </header>
+        )}
 
         {!hasReleases && (showAuthWait || showListSkeleton) ? (
           <FullScreenLoader
@@ -502,71 +443,15 @@ function LibraryPageInner() {
             </button>
           </div>
         ) : showEmptyState && isEmpty ? (
-          /* Первый вход: вместо пустой сетки — конверт будущего релиза с именем артиста. */
-          <div className="mx-auto flex max-w-sm flex-col items-center text-center">
-            <button
-              type="button"
-              onClick={handleCreate}
-              aria-label="Создать первый релиз"
-              className="omf-focus w-[68%] max-w-[260px] rounded-sleeve text-left transition-transform duration-150 active:scale-[0.98]"
-            >
-              {/* seed выбран под индиго-конверт: не сливается с синей кнопкой ниже. */}
-              <ReleaseSleeve seed="first-single" title="Твой первый сингл" artist={heroArtistName} size="hero" />
-            </button>
-            <p className="mt-7 text-[22px] font-extrabold leading-tight tracking-[-0.02em]">Здесь будет твой релиз</p>
-            <p className="mt-2 max-w-[32ch] text-[14px] leading-relaxed text-omf-graphite">
-              Яндекс Музыка, VK Музыка, Spotify, Apple Music и другие площадки. После нашей проверки площадки
-              принимают релиз за {DSP_REVIEW_DAYS_TEXT}.
-            </p>
-            {referralDiscountPending ? (
-              <p className="mt-4 rounded-full bg-omf-yellow px-4 py-2 text-[14px] font-bold text-omf-yellow-ink">
-                🎁 По приглашению друга: −{formatRub(REFEREE_DISCOUNT_RUB)} на первый релиз
-              </p>
-            ) : null}
-            <button type="button" onClick={handleCreate} className="omf-btn-primary mt-6 w-full">
-              Создать релиз
-            </button>
-            {isTelegram ? (
-              <div className="mt-8 w-full text-left">
-                <ReferralInviteRow />
-              </div>
-            ) : null}
-          </div>
+          <FirstReleaseEmpty
+            artistName={heroArtistName}
+            onCreate={handleCreate}
+            referralDiscountPending={referralDiscountPending}
+            showInvite={isTelegram}
+          />
         ) : (
           <>
-            {selectedView === "all" && statusFilter === "all" && libraryActions.length > 0 ? (
-              <section aria-label="Нужно твоё действие" className="mb-6 border-y border-omf-line">
-                {libraryActions.map((action, i) => (
-                  <button
-                    key={action.kind}
-                    type="button"
-                    onClick={() => onLibraryAction(action)}
-                    disabled={resumingId != null}
-                    className={cn(
-                      "omf-focus flex w-full items-center gap-3 py-3.5 text-left transition-colors hover:bg-omf-surface disabled:opacity-60",
-                      i > 0 && "border-t border-omf-line"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "h-2.5 w-2.5 shrink-0 rounded-full",
-                        action.kind === "fix" ? "bg-omf-red" : "bg-omf-ink"
-                      )}
-                      aria-hidden
-                    />
-                    <span className="min-w-0 flex-1 text-[15px] font-medium text-omf-ink">{action.text}</span>
-                    <span className="inline-flex shrink-0 items-center gap-0.5 text-[14px] text-omf-ultra-text">
-                      {action.kind === "fix" ? "Исправить" : action.count === 1 ? "Продолжить" : "Открыть"}
-                      <ChevronRight className="h-4 w-4" aria-hidden />
-                    </span>
-                  </button>
-                ))}
-              </section>
-            ) : null}
-
-            {isTelegram && selectedView === "all" && statusFilter === "all" ? <ReferralInviteRow /> : null}
-
-            {hasReleasesInView && error == null && selectedView === "all" && (
+            {releases.length >= STATUS_FILTER_MIN_RELEASES && error == null && selectedView === "all" && (
               <div
                 className="mb-6 flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 role="tablist"
@@ -606,15 +491,15 @@ function LibraryPageInner() {
               <p className="mb-6 text-[14px] text-omf-graphite">Здесь пока пусто.</p>
             )}
 
-            <div
-              className={cn(
-                "grid grid-cols-2 gap-x-4 gap-y-7",
-                isWeb && "sm:grid-cols-3 lg:grid-cols-4 lg:gap-x-6"
-              )}
-            >
-              {filteredReleases.map((release, i) => renderReleaseBlock(release, i))}
-              {selectedView !== "moderation" ? newReleaseTile : null}
+            <div className={cn("flex flex-col gap-2", isWeb && "sm:grid sm:grid-cols-2 sm:gap-3")}>
+              {filteredReleases.map((release, i) => renderReleaseRow(release, i))}
             </div>
+
+            {isTelegram && selectedView === "all" ? (
+              <div className="mt-5 flex justify-center">
+                <ReferralInviteLink />
+              </div>
+            ) : null}
           </>
         )}
       </div>

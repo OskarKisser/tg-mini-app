@@ -3,8 +3,8 @@ import type { Page } from "@playwright/test";
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /**
- * E2E ходят в тот же Supabase, что и прод (секреты CI). Чтобы прогон не создавал черновики
- * и не писал логи от имени devUserId, любые записи в наше API и в Supabase отвечают ошибкой,
+ * В CI вместо Supabase заглушка, но локально E2E видят настоящий проект из .env.local. Чтобы прогон
+ * не создавал черновики и не писал логи от имени devUserId, любые записи в наше API и в Supabase отвечают ошибкой,
  * если тест сам не подменил маршрут (`page.route`, зарегистрированный позже, срабатывает раньше).
  */
 export async function blockBackendWrites(page: Page): Promise<void> {

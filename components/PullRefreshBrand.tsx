@@ -5,17 +5,21 @@ import { Music } from "lucide-react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 
 const MAX_PULL = 96;
+/** Дотянул до этой отметки и отпустил — обновляем. */
+const REFRESH_AT = 72;
 
 type PullRefreshBrandProps = {
   /** Зарезервировано: кастомный контейнер скролла. */
   scrollRoot?: HTMLElement | null;
+  /** Жест дотянули до конца и отпустили. */
+  onRefresh?: () => void;
 };
 
 /**
  * Индикатор при оттягивании вниз у верхней границы списка (touch).
  * Вращение/масштаб иконки от прогресса жеста (useMotionValue + useTransform).
  */
-export function PullRefreshBrand({ scrollRoot }: PullRefreshBrandProps) {
+export function PullRefreshBrand({ scrollRoot, onRefresh }: PullRefreshBrandProps) {
   const pull = useMotionValue(0);
   const rotate = useTransform(pull, [0, MAX_PULL], [0, 360]);
   const scale = useTransform(pull, [0, MAX_PULL], [0.65, 1.05]);
@@ -23,6 +27,8 @@ export function PullRefreshBrand({ scrollRoot }: PullRefreshBrandProps) {
 
   const startY = useRef(0);
   const pulling = useRef(false);
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
 
   const getScrollTop = useCallback(() => {
     if (scrollRoot) return scrollRoot.scrollTop;
@@ -48,6 +54,7 @@ export function PullRefreshBrand({ scrollRoot }: PullRefreshBrandProps) {
     };
 
     const onTouchEnd = () => {
+      if (pulling.current && pull.get() >= REFRESH_AT) onRefreshRef.current?.();
       pulling.current = false;
       pull.set(0);
     };

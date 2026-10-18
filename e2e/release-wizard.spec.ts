@@ -202,6 +202,13 @@ test.describe("@regression Create release wizard — metadata form behavior", ()
 // ─── Library page ────────────────────────────────────────────────────────────
 
 test.describe("@smoke @regression Library page", () => {
+  // Список релизов подменяем: в CI нет настоящего Supabase, а пустая библиотека — тот самый экран, что проверяем.
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/api/releases/my**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, rows: [] }) })
+    );
+  });
+
   test("renders without crashing", async ({ page }) => {
     await navigateTo(page, "/library");
     await page.waitForLoadState("networkidle");
