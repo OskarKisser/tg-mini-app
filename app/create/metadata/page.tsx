@@ -7,10 +7,12 @@ import { Suspense } from "react";
 import { Controller, useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Calendar, Disc, FileSignature, Languages, Mic2, Music2, Timer } from "lucide-react";
 import { FormFieldError } from "@/components/FormFieldError";
 import { MetadataSelectField } from "@/features/release/createRelease/components/MetadataSelectField";
 import { CreateShell } from "@/features/release/createRelease/components/CreateShell";
+import { WizardActionBar } from "@/features/release/createRelease/components/WizardActionBar";
+import { WizardToggleRow } from "@/features/release/createRelease/components/WizardToggleRow";
+import { pluralRu } from "@/lib/release-next-step";
 import {
   FIXED_RELEASE_LABEL,
   metadataSchema
@@ -336,6 +338,11 @@ function CreateMetadataPageInner() {
     const day = String(min.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }, []);
+  const minReleaseDateLabel = useMemo(
+    () =>
+      new Date(`${minReleaseDate}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }),
+    [minReleaseDate]
+  );
 
   const isEarlyReleaseDate = useMemo(() => {
     const d = values.releaseDate?.trim();
@@ -395,6 +402,19 @@ function CreateMetadataPageInner() {
     toast.error(firstRhfErrorMessage(formErrors));
   }, []);
 
+  /** Сколько обязательных полей паспорта ещё пусто — подсказка под закреплённой кнопкой. */
+  const missingRequired = [
+    values.primaryArtist,
+    values.releaseTitle,
+    values.genre,
+    values.language,
+    values.releaseDate,
+    values.authorFullName,
+    values.musicAuthor,
+    values.licenseType,
+    values.tiktokStart
+  ].filter((v) => !(typeof v === "string" ? v.trim() : v)).length;
+
   const canProceed =
     Boolean(values.primaryArtist?.trim()) &&
     Boolean(values.releaseTitle?.trim()) &&
@@ -433,6 +453,7 @@ function CreateMetadataPageInner() {
           </div>
         ) : (
           <form
+            id="create-metadata-form"
             onSubmit={handleSubmit(onSubmit, onInvalid)}
             onBlurCapture={() => {
               flushPassportToZustand();
@@ -502,172 +523,126 @@ function CreateMetadataPageInner() {
                 </motion.div>
               )}
             </AnimatePresence>
-            <div className="min-w-0 space-y-1.5">
-              <label
-                className={`mb-2.5 flex items-center gap-2 ${WIZARD_FIELD_LABEL_CLASS}`}
-              >
-                <Mic2 className="h-3.5 w-3.5 text-omf-faint" aria-hidden />
-                Артист
-              </label>
-              <Controller
-                name="primaryArtist"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    name={field.name}
-                    ref={field.ref}
-                    value={typeof field.value === "string" ? field.value : ""}
-                    onChange={(e) => field.onChange(e.target.value)}
-                    onBlur={field.onBlur}
-                    className={`${WIZARD_INPUT_CLASS} ${borderForField(
-                      Boolean(errors.primaryArtist),
-                      touchedFields.primaryArtist,
-                      dirtyFields.primaryArtist,
-                      guidelineFieldFlags.primaryArtist
-                    )}`}
-                    placeholder="Имя на обложке"
-                    autoComplete="off"
-                  />
-                )}
-              />
-              <FormFieldError message={errors.primaryArtist?.message} />
-            </div>
+            <section aria-labelledby="meta-about" className="flex flex-col gap-4">
+              <h2 id="meta-about" className="text-[15px] font-semibold tracking-[-0.01em] text-omf-ink">
+                О релизе
+              </h2>
 
-            <div className="min-w-0 space-y-1.5">
-              <label className={`mb-2.5 block ${WIZARD_FIELD_LABEL_CLASS}`}>
-                Название релиза
-              </label>
-              <Controller
-                name="releaseTitle"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    name={field.name}
-                    ref={field.ref}
-                    value={typeof field.value === "string" ? field.value : ""}
-                    onChange={(e) => field.onChange(e.target.value)}
-                    onBlur={field.onBlur}
-                    className={`${WIZARD_INPUT_CLASS} ${borderForField(
-                      Boolean(errors.releaseTitle),
-                      touchedFields.releaseTitle,
-                      dirtyFields.releaseTitle,
-                      guidelineFieldFlags.releaseTitle
-                    )}`}
-                    placeholder="Основное название релиза"
-                    autoComplete="off"
-                  />
-                )}
-              />
-              <FormFieldError message={errors.releaseTitle?.message} />
-            </div>
-
-            <MetadataSelectField
-              label="Язык исполнения"
-              Icon={Languages}
-              errorMessage={errors.language?.message}
-              {...register("language")}
-              selectClassName={borderForField(
-                Boolean(errors.language),
-                touchedFields.language,
-                dirtyFields.language
-              )}
-            >
-              {PERFORMANCE_LANGUAGE_VALUES.map((code) => (
-                <option key={code} value={code}>
-                  {PERFORMANCE_LANGUAGE_LABELS[code]}
-                </option>
-              ))}
-            </MetadataSelectField>
-
-            <MetadataSelectField
-              label="Контент с матом"
-              Icon={AlertTriangle}
-              iconClassName={values.explicit ? "text-omf-yellow" : "text-omf-faint"}
-              errorMessage={errors.explicit?.message}
-              value={values.explicit ? "explicit" : "clean"}
-              onChange={(e) =>
-                setValue("explicit", e.target.value === "explicit", {
-                  shouldValidate: true,
-                  shouldDirty: true,
-                  shouldTouch: true
-                })
-              }
-              selectClassName={borderForField(
-                Boolean(errors.explicit),
-                touchedFields.explicit,
-                dirtyFields.explicit
-              )}
-            >
-              <option value="clean">Чистая версия</option>
-              <option value="explicit">Есть мат</option>
-            </MetadataSelectField>
-
-            <MetadataSelectField
-              label="Жанр"
-              Icon={Music2}
-              errorMessage={errors.genre?.message}
-              {...register("genre")}
-              selectClassName={borderForField(
-                Boolean(errors.genre),
-                touchedFields.genre,
-                dirtyFields.genre
-              )}
-            >
-              <option value="" disabled hidden>
-                —
-              </option>
-              {GENRE_OPTIONS.map((g) => (
-                <option key={g.value} value={g.value}>
-                  {g.label}
-                </option>
-              ))}
-            </MetadataSelectField>
-
-            <div className="min-w-0">
-              <label
-                className={`mb-3 flex items-center gap-2 ${WIZARD_FIELD_LABEL_CLASS}`}
-              >
-                <Disc className="h-3.5 w-3.5 text-omf-faint" aria-hidden />
-                Тип релиза
-              </label>
-              <div className="flex gap-2">
-                {RELEASE_TYPE_SEGMENTS.map(({ value: rt, label }) => {
-                  const active = values.releaseType === rt;
-                  return (
-                    <motion.button
-                      key={rt}
-                      type="button"
-                      onClick={() => {
-                        hapticMap.impactLight();
-                        setValue("releaseType", rt, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                          shouldTouch: true
-                        });
-                      }}
-                      whileTap={{ scale: 0.96 }}
-                      aria-pressed={active}
-                      className={`omf-focus min-h-[48px] flex-1 rounded-control text-[15px] transition-colors duration-150 ${
-                        active
-                          ? "bg-omf-ink font-bold text-omf-bg"
-                          : "border border-omf-line-strong font-medium text-omf-graphite hover:text-omf-ink"
-                      }`}
-                    >
-                      {label}
-                    </motion.button>
-                  );
-                })}
+              <div className="min-w-0">
+                <div className="grid grid-cols-3 gap-1 rounded-[13px] bg-omf-surface p-1" role="group" aria-label="Тип релиза">
+                  {RELEASE_TYPE_SEGMENTS.map(({ value: rt, label }) => {
+                    const active = values.releaseType === rt;
+                    return (
+                      <motion.button
+                        key={rt}
+                        type="button"
+                        onClick={() => {
+                          hapticMap.impactLight();
+                          setValue("releaseType", rt, {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                            shouldTouch: true
+                          });
+                        }}
+                        whileTap={{ scale: 0.96 }}
+                        aria-pressed={active}
+                        className={`omf-focus min-h-[40px] rounded-[10px] text-[14px] transition-colors duration-150 ${
+                          active ? "bg-omf-ink font-semibold text-omf-bg" : "text-omf-graphite hover:text-omf-ink"
+                        }`}
+                      >
+                        {label}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                <FormFieldError message={errors.releaseType?.message} />
               </div>
-              <FormFieldError message={errors.releaseType?.message} />
-            </div>
 
-            <div className="space-y-4">
               <div className="min-w-0 space-y-1.5">
-                <label
-                  className={`mb-2.5 flex items-center gap-2 ${WIZARD_FIELD_LABEL_CLASS}`}
+                <label className={`block ${WIZARD_FIELD_LABEL_CLASS}`}>Артист на обложке</label>
+                <Controller
+                  name="primaryArtist"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      name={field.name}
+                      ref={field.ref}
+                      value={typeof field.value === "string" ? field.value : ""}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      onBlur={field.onBlur}
+                      className={`${WIZARD_INPUT_CLASS} ${borderForField(
+                        Boolean(errors.primaryArtist),
+                        touchedFields.primaryArtist,
+                        dirtyFields.primaryArtist,
+                      guidelineFieldFlags.primaryArtist
+                      )}`}
+                      placeholder="Имя на обложке"
+                      autoComplete="off"
+                    />
+                  )}
+                />
+                <FormFieldError message={errors.primaryArtist?.message} />
+              </div>
+
+              <div className="min-w-0 space-y-1.5">
+                <label className={`block ${WIZARD_FIELD_LABEL_CLASS}`}>Название</label>
+                <Controller
+                  name="releaseTitle"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      name={field.name}
+                      ref={field.ref}
+                      value={typeof field.value === "string" ? field.value : ""}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      onBlur={field.onBlur}
+                      className={`${WIZARD_INPUT_CLASS} ${borderForField(
+                        Boolean(errors.releaseTitle),
+                        touchedFields.releaseTitle,
+                        dirtyFields.releaseTitle,
+                      guidelineFieldFlags.releaseTitle
+                      )}`}
+                      placeholder="Основное название релиза"
+                      autoComplete="off"
+                    />
+                  )}
+                />
+                <FormFieldError message={errors.releaseTitle?.message} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <MetadataSelectField
+                  label="Жанр"
+                  errorMessage={errors.genre?.message}
+                  {...register("genre")}
+                  selectClassName={borderForField(Boolean(errors.genre), touchedFields.genre, dirtyFields.genre)}
                 >
-                  <Calendar className="h-3.5 w-3.5 text-omf-faint" strokeWidth={1.5} aria-hidden />
-                  Плановая дата релиза
+                  <option value="" disabled hidden>
+                    —
+                  </option>
+                  {GENRE_OPTIONS.map((g) => (
+                    <option key={g.value} value={g.value}>
+                      {g.label}
+                    </option>
+                  ))}
+                </MetadataSelectField>
+                <MetadataSelectField
+                  label="Язык"
+                  errorMessage={errors.language?.message}
+                  {...register("language")}
+                  selectClassName={borderForField(Boolean(errors.language), touchedFields.language, dirtyFields.language)}
+                >
+                  {PERFORMANCE_LANGUAGE_VALUES.map((code) => (
+                    <option key={code} value={code}>
+                      {PERFORMANCE_LANGUAGE_LABELS[code]}
+                    </option>
+                  ))}
+                </MetadataSelectField>
+              </div>
+
+              <div className="min-w-0 space-y-1.5">
+                <label htmlFor="meta-release-date" className={`block ${WIZARD_FIELD_LABEL_CLASS}`}>
+                  Дата выхода
                 </label>
                 <div
                   className={`${GLASS_DATE_WRAP_BASE} ${borderForDateWrap(
@@ -677,6 +652,7 @@ function CreateMetadataPageInner() {
                   )}`}
                 >
                   <input
+                    id="meta-release-date"
                     type="date"
                     min={minReleaseDate}
                     {...register("releaseDate")}
@@ -684,35 +660,32 @@ function CreateMetadataPageInner() {
                   />
                 </div>
                 <FormFieldError message={errors.releaseDate?.message} />
+                <p className="text-[12px] leading-snug text-omf-faint">Не раньше {minReleaseDateLabel}</p>
               </div>
               {isEarlyReleaseDate && (
-                <p className="rounded-control border border-omf-line-strong px-3 py-2.5 text-[13px] leading-relaxed text-omf-graphite">
-                  Если выпустить раньше чем через 2 недели, шансов попасть в редакционные плейлисты меньше. Лучше выбрать дату позже.
+                <p className="text-[12.5px] leading-snug text-omf-yellow">
+                  Раньше чем через 2 недели меньше шансов попасть в редакционные плейлисты.
                 </p>
               )}
-              <div className="min-w-0 space-y-1.5">
-                <label className={`mb-2.5 block ${WIZARD_FIELD_LABEL_CLASS}`}>
-                  Лейбл
-                </label>
-                <div
-                  className={`${WIZARD_INPUT_CLASS} cursor-not-allowed text-omf-graphite`}
-                  aria-readonly="true"
-                >
-                  {FIXED_RELEASE_LABEL}
-                </div>
-                <input type="hidden" {...register("label")} />
-                <p className="text-[13px] leading-relaxed text-omf-faint">
-                  Лейбл задан сервисом, поменять его нельзя.
-                </p>
-              </div>
-            </div>
 
-            <div className="space-y-4">
-              <p className="pt-2 text-[17px] font-semibold text-omf-ink">Авторство и права</p>
+              <WizardToggleRow
+                id="meta-explicit"
+                label="Есть мат"
+                hint="Площадки поставят пометку E"
+                checked={Boolean(values.explicit)}
+                onChange={(next) =>
+                  setValue("explicit", next, { shouldValidate: true, shouldDirty: true, shouldTouch: true })
+                }
+              />
+              <input type="hidden" {...register("label")} />
+            </section>
+
+            <section aria-labelledby="meta-rights" className="flex flex-col gap-4">
+              <h2 id="meta-rights" className="text-[15px] font-semibold tracking-[-0.01em] text-omf-ink">
+                Авторство и права
+              </h2>
               <div className="min-w-0 space-y-1.5">
-                <label className={`mb-2.5 block ${WIZARD_FIELD_LABEL_CLASS}`}>
-                  ФИО артиста
-                </label>
+                <label className={`block ${WIZARD_FIELD_LABEL_CLASS}`}>ФИО артиста, как в паспорте</label>
                 <Controller
                   name="authorFullName"
                   control={control}
@@ -734,13 +707,11 @@ function CreateMetadataPageInner() {
                   )}
                 />
                 <FormFieldError message={errors.authorFullName?.message} />
-                <p className="text-[13px] leading-relaxed text-omf-faint">Как в паспорте. Если артистов несколько, перечислите через запятую.</p>
+                <p className="text-[12px] leading-snug text-omf-faint">Если артистов несколько, через запятую</p>
               </div>
 
               <div className="min-w-0 space-y-1.5">
-                <label className={`mb-2.5 block ${WIZARD_FIELD_LABEL_CLASS}`}>
-                  Автор бита
-                </label>
+                <label className={`block ${WIZARD_FIELD_LABEL_CLASS}`}>Автор бита</label>
                 <Controller
                   name="musicAuthor"
                   control={control}
@@ -765,15 +736,10 @@ function CreateMetadataPageInner() {
               </div>
 
               <MetadataSelectField
-                label="Условия использования бита"
-                Icon={FileSignature}
+                label="Бит"
                 errorMessage={errors.licenseType?.message}
                 {...register("licenseType")}
-                selectClassName={borderForField(
-                  Boolean(errors.licenseType),
-                  touchedFields.licenseType,
-                  dirtyFields.licenseType
-                )}
+                selectClassName={borderForField(Boolean(errors.licenseType), touchedFields.licenseType, dirtyFields.licenseType)}
               >
                 <option value="" disabled hidden>
                   —
@@ -786,10 +752,7 @@ function CreateMetadataPageInner() {
               </MetadataSelectField>
 
               <div className="min-w-0 space-y-1.5">
-                <label className={`mb-2.5 flex items-center gap-2 ${WIZARD_FIELD_LABEL_CLASS}`}>
-                  <Timer className="h-3.5 w-3.5 text-omf-faint" aria-hidden />
-                  Начало отрывка для TikTok
-                </label>
+                <label className={`block ${WIZARD_FIELD_LABEL_CLASS}`}>Отрывок для TikTok и Reels начинается с</label>
                 <Controller
                   name="tiktokStart"
                   control={control}
@@ -800,7 +763,7 @@ function CreateMetadataPageInner() {
                       value={typeof field.value === "string" ? field.value : ""}
                       onChange={(e) => field.onChange(e.target.value)}
                       onBlur={field.onBlur}
-                      inputMode="text"
+                    inputMode="text"
                       className={`${WIZARD_INPUT_CLASS} ${borderForField(
                         Boolean(errors.tiktokStart),
                         touchedFields.tiktokStart,
@@ -812,19 +775,23 @@ function CreateMetadataPageInner() {
                   )}
                 />
                 <FormFieldError message={errors.tiktokStart?.message} />
-                <p className="text-[13px] leading-relaxed text-omf-faint">С какого момента трека начинать 60-секундный фрагмент для TikTok и Reels.</p>
               </div>
-            </div>
 
-            <ArtistProfileLinksSection />
+              <ArtistProfileLinksSection />
+            </section>
 
-            <button
-              type="submit"
-              disabled={!canProceed || isSubmitting}
-              className="create-flow-submit-target omf-btn-primary mt-1 h-14 w-full text-[16px]"
+            <WizardActionBar
+              note={missingRequired > 0 ? `Осталось заполнить ${missingRequired} ${pluralRu(missingRequired, ["поле", "поля", "полей"])}` : "Всё заполнено"}
             >
-              <BusyLabel busy={isSubmitting} busyText="Сохраняем…">Дальше: обложка</BusyLabel>
-            </button>
+              <button
+                type="submit"
+                form="create-metadata-form"
+                disabled={!canProceed || isSubmitting}
+                className="create-flow-submit-target omf-btn-primary h-[52px] w-full text-[16px] font-medium"
+              >
+                <BusyLabel busy={isSubmitting} busyText="Сохраняем…">Дальше: обложка</BusyLabel>
+              </button>
+            </WizardActionBar>
           </form>
         )}
       </div>

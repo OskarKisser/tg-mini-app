@@ -168,10 +168,11 @@ test.describe("@regression Create release wizard — level2 files regression", (
     });
 
     await navigateTo(page, "/create/review");
-    await expect(page.getByText(/выбери wav-файлы заново/i)).toBeVisible({
+    await expect(page.getByText(/выбери wav заново/i)).toBeVisible({
       timeout: 10_000
     });
-    await expect(page.getByRole("link", { name: /вернуться к трекам/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /изменить треки/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /отправить на проверку/i })).toBeDisabled();
   });
 });
 

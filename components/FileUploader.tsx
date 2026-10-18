@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { ErrorBoundary } from "react-error-boundary";
-import { Check, ImagePlus, Music2 } from "lucide-react";
+import { Check, ImagePlus, Music2, Plus } from "lucide-react";
 import { FormFieldError } from "@/components/FormFieldError";
 import { ALLOWED_AUDIO_MIME } from "@/repositories/releases.repo";
 import { triggerHaptic } from "@/lib/telegram";
@@ -34,7 +34,7 @@ function makeMosaicThumb(img: HTMLImageElement): Promise<string | null> {
 }
 
 type Props = {
-  label: string;
+  label?: string;
   accept: string;
   maxSizeMb: number;
   type: "wav" | "cover";
@@ -290,9 +290,10 @@ export function FileUploader({
       {label ? <p className="text-[13px] text-omf-graphite">{label}</p> : null}
 
       {type === "cover" ? (
+        <>
         <label
-          className={`${frame} mx-auto aspect-square w-full max-w-[320px] flex-col items-center justify-center rounded-sleeve ${
-            hasCover ? "border border-omf-line" : "border-[1.5px] border-dashed px-6 text-center"
+          className={`${frame} mx-auto aspect-square w-full max-w-[280px] flex-col items-center justify-center rounded-[4px] ${
+            hasCover ? "border border-omf-line" : `omf-first-cover omf-first-cover--flat px-6 text-center ${hasError ? "border border-omf-red" : ""}`
           }`}
         >
           <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
@@ -313,14 +314,19 @@ export function FileUploader({
             </>
           ) : (
             <>
-              <ImagePlus className="h-8 w-8 text-omf-graphite" strokeWidth={1.5} aria-hidden />
-              <span className="mt-3 text-[16px] font-medium text-omf-ink">Выбери обложку</span>
-              <span className="mt-1 text-[13px] leading-snug text-omf-graphite">
-                JPG или PNG, от 3000×3000 пикселей
+              <span className="relative z-[1] flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/30">
+                <Plus className="h-[22px] w-[22px] text-white" strokeWidth={1.75} aria-hidden />
               </span>
+              <span className="relative z-[1] mt-3 text-[16px] font-semibold text-white">Выбрать обложку</span>
             </>
           )}
         </label>
+        <p className="mt-3 text-center text-[13px] leading-relaxed text-omf-graphite">
+          <span className="font-medium text-omf-ink">Квадрат JPG или PNG</span>
+          <br />
+          От 3000×3000 пикселей, до {maxSizeMb} МБ
+        </p>
+        </>
       ) : (
         <label
           className={`${frame} min-h-[88px] flex-col justify-center rounded-control px-4 py-4 ${

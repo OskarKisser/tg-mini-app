@@ -1,18 +1,14 @@
 "use client";
 
 import { forwardRef, useId } from "react";
-import type { LucideIcon } from "lucide-react";
 import { ChevronDown } from "lucide-react";
 import { FormFieldError } from "@/components/FormFieldError";
 import { GLASS_FIELD_BASE, WIZARD_FIELD_LABEL_CLASS } from "@/lib/glass-form-classes";
 
-const METADATA_LABEL_CLASS = `mb-2 flex items-center gap-1.5 ${WIZARD_FIELD_LABEL_CLASS}`;
+const METADATA_LABEL_CLASS = `mb-1.5 block ${WIZARD_FIELD_LABEL_CLASS}`;
 
 export type MetadataSelectFieldProps = {
   label: string;
-  Icon: LucideIcon;
-  /** Доп. классы для иконки в лейбле (например, предупреждающий цвет для Explicit). */
-  iconClassName?: string;
   errorMessage?: string;
   /** Дополнительные классы для `<select>` (границы ошибок и т.д.). */
   selectClassName?: string;
@@ -20,18 +16,15 @@ export type MetadataSelectFieldProps = {
 
 export const MetadataSelectField = forwardRef<HTMLSelectElement, MetadataSelectFieldProps>(
   function MetadataSelectField(
-    { label, Icon, iconClassName, errorMessage, selectClassName = "", id, children, ...rest },
+    { label, errorMessage, selectClassName = "", id, children, ...rest },
     ref
   ) {
     const autoId = useId();
     const selectId = id ?? autoId;
 
-    const iconTone = iconClassName ?? "text-omf-faint";
-
     return (
       <div className="min-w-0">
         <label htmlFor={selectId} className={METADATA_LABEL_CLASS}>
-          <Icon className={`h-3.5 w-3.5 shrink-0 ${iconTone}`} aria-hidden />
           {label}
         </label>
         <div className="relative">

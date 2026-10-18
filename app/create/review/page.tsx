@@ -6,7 +6,8 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ReleaseSleeve } from "@/components/ReleaseSleeve";
+import { AlertCircle } from "lucide-react";
+import { WizardActionBar } from "@/features/release/createRelease/components/WizardActionBar";
 import { CreateShell } from "@/features/release/createRelease/components/CreateShell";
 import { hapticMap } from "@/lib/haptic-map";
 import { StepGate } from "@/features/release/createRelease/components/StepGate";
@@ -275,188 +276,187 @@ export default function CreateReviewPage() {
     );
   }
 
-  const passportRows: { label: string; value: string }[] = [
-    { label: "Артист", value: artistName },
-    { label: "Формат", value: RELEASE_TYPE_RU[metadata.releaseType] ?? metadata.releaseType },
-    { label: "Жанр", value: metadata.genre?.trim() || "Не выбран" },
-    {
-      label: "Язык",
-      value:
-        PERFORMANCE_LANGUAGE_LABELS[metadata.language as PerformanceLanguage] ?? metadata.language
-    },
-    { label: "Дата выхода", value: formatReleaseDateBadge(metadata.releaseDate) },
-    { label: "Мат в тексте", value: metadata.explicit ? "Есть" : "Нет" },
-    { label: "ФИО артиста", value: metadata.authorFullName?.trim() || "Не указано" },
-    { label: "Автор бита", value: metadata.musicAuthor?.trim() || "Не указан" },
-    {
-      label: "Бит",
-      value: isLicenseType(metadata.licenseType)
-        ? LICENSE_TYPE_LABELS[metadata.licenseType]
-        : "Не указано"
-    },
-    { label: "Отрывок TikTok", value: metadata.tiktokStart?.trim() ? `с ${metadata.tiktokStart.trim()}` : "Не указан" }
-  ];
-  if (featuringLine) passportRows.push({ label: "Участники", value: featuringLine });
+  const languageLabel =
+    PERFORMANCE_LANGUAGE_LABELS[metadata.language as PerformanceLanguage] ?? metadata.language;
+  const passportSummary = [
+    RELEASE_TYPE_RU[metadata.releaseType] ?? metadata.releaseType,
+    metadata.genre?.trim() || "жанр не выбран",
+    languageLabel?.toLowerCase(),
+    metadata.explicit ? "есть мат" : "без мата",
+    `выходит ${formatReleaseDateBadge(metadata.releaseDate)}`
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const rightsSummary = [
+    metadata.authorFullName?.trim() || "ФИО не указано",
+    metadata.musicAuthor?.trim() ? `бит: ${metadata.musicAuthor.trim()}` : "автор бита не указан",
+    isLicenseType(metadata.licenseType) ? LICENSE_TYPE_LABELS[metadata.licenseType].toLowerCase() : null,
+    metadata.tiktokStart?.trim() ? `отрывок с ${metadata.tiktokStart.trim()}` : null,
+    featuringLine ? `участники: ${featuringLine}` : null
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const trackStates = tracks.map((t, i) => {
+    const hasFile = Boolean(trackFiles[i]);
+    const dbUrl = trackAudioUrlsFromDb[i] ?? null;
+    const ok = tracksWavSyncedToDb || hasFile;
+    const note = tracksWavSyncedToDb ? "аудио на сервере" : hasFile ? "файл выбран" : dbUrl ? "выбери файл заново" : "нет аудио";
+    return { title: t.title || "Без названия", ok, note };
+  });
+  const tracksHaveProblem = trackStates.some((t) => !t.ok);
+
+  const editLink = (href: string, label: string) => (
+    <Link
+      href={href}
+      onClick={() => triggerHaptic("light")}
+      aria-label={label}
+      className="omf-focus shrink-0 rounded-full text-[13px] text-omf-ultra-text hover:text-omf-ink"
+    >
+      Изменить
+    </Link>
+  );
 
   return (
     <CreateShell title="Проверка">
-      <div className="space-y-8">
-        <div className="mx-auto w-[64%] max-w-[260px]">
-          <ReleaseSleeve
-            seed={releaseId ?? releaseTitle}
-            title={releaseTitle}
-            artist={artistName}
-            coverUrl={artworkUrl}
-            size="hero"
-          />
+      <div className="space-y-5">
+        <div className="flex flex-col gap-2">
+          <section aria-labelledby="review-passport" className="rounded-[16px] bg-omf-surface px-4 py-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 id="review-passport" className="text-[14.5px] font-semibold text-omf-ink">
+                Паспорт
+              </h3>
+              {editLink("/create/metadata", "Изменить паспорт")}
+            </div>
+            <p className="mt-1 text-[13px] leading-snug text-omf-graphite">{passportSummary}</p>
+          </section>
+
+          <section aria-labelledby="review-rights" className="rounded-[16px] bg-omf-surface px-4 py-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 id="review-rights" className="text-[14.5px] font-semibold text-omf-ink">
+                Авторство и права
+              </h3>
+              {editLink("/create/metadata", "Изменить авторство и права")}
+            </div>
+            <p className="mt-1 text-[13px] leading-snug text-omf-graphite">{rightsSummary}</p>
+          </section>
+
+          {!artworkUrl ? (
+            <section className="rounded-[16px] bg-omf-surface px-4 py-3.5 shadow-[inset_0_0_0_1px_rgba(229,72,77,0.45)]">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-[14.5px] font-semibold text-omf-ink">Обложка</h3>
+                {editLink("/create/assets", "Загрузить обложку")}
+              </div>
+              <p className="mt-1 text-[13px] text-[#ff8a8d]">Обложка не загружена</p>
+            </section>
+          ) : null}
+
+          <section
+            aria-labelledby="review-tracks"
+            className={cn(
+              "rounded-[16px] bg-omf-surface px-4 py-3.5",
+              tracksHaveProblem && "shadow-[inset_0_0_0_1px_rgba(229,72,77,0.45)]"
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 id="review-tracks" className="min-w-0 truncate text-[14.5px] font-semibold text-omf-ink">
+                {trackStates.length > 1 ? `Треки, ${trackStates.length}` : `Трек: ${trackStates[0]?.title ?? ""}`}
+              </h3>
+              {editLink("/create/tracks", "Изменить треки")}
+            </div>
+            {trackStates.length > 1 ? (
+              <ol className="mt-1.5">
+                {trackStates.map((t, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <li key={i} className="flex min-w-0 items-baseline gap-3 py-1 text-[13.5px]">
+                    <span className="w-4 shrink-0 tabular-nums text-omf-faint">{i + 1}</span>
+                    <span className="min-w-0 flex-1 truncate text-omf-ink">{t.title}</span>
+                    <span className={cn("shrink-0 text-[12.5px]", t.ok ? "text-omf-graphite" : "text-[#ff8a8d]")}>
+                      {t.note}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : trackStates[0]?.ok ? (
+              <p className="mt-1 text-[13px] text-omf-graphite">{trackStates[0].note}</p>
+            ) : null}
+            {missingFiles ? (
+              <p className="mt-2 flex items-start gap-1.5 text-[13px] leading-snug text-[#ff8a8d]">
+                <AlertCircle className="mt-[1px] h-[15px] w-[15px] shrink-0" aria-hidden />
+                Выбери WAV заново: после черновика файл не сохраняется
+              </p>
+            ) : null}
+          </section>
         </div>
 
-        <p className="text-[15px] leading-relaxed text-omf-graphite">
-          Проверь данные: после отправки релиз попадёт к модератору.
-          {tracksWavSyncedToDb
-            ? " Аудио уже загружено, осталось нажать кнопку."
-            : " Аудио мы загрузим при отправке."}
-        </p>
-
-        <section aria-labelledby="review-passport">
-          <h3 id="review-passport" className="text-[13px] text-omf-graphite">
-            Паспорт
-          </h3>
-          <dl className="mt-1">
-            {passportRows.map((row) => (
-              <div
-                key={row.label}
-                className="flex items-baseline justify-between gap-4 border-b border-omf-line py-3"
-              >
-                <dt className="shrink-0 text-[14px] text-omf-graphite">{row.label}</dt>
-                <dd className="min-w-0 break-words text-right text-[15px]">{row.value}</dd>
-              </div>
-            ))}
-            <div className="flex items-baseline justify-between gap-4 border-b border-omf-line py-3">
-              <dt className="shrink-0 text-[14px] text-omf-graphite">Обложка</dt>
-              <dd className={`text-right text-[15px] ${artworkUrl ? "" : "text-omf-red"}`}>
-                {artworkUrl ? "Загружена" : "Не загружена"}
-              </dd>
-            </div>
-          </dl>
-        </section>
-
-        <section aria-labelledby="review-tracks">
-          <h3 id="review-tracks" className="text-[13px] text-omf-graphite">
-            {tracks.length > 1 ? `Треки, ${tracks.length}` : "Трек"}
-          </h3>
-          <ol className="mt-1">
-            {tracks.map((t, i) => {
-              const hasFile = Boolean(trackFiles[i]);
-              const dbUrl = trackAudioUrlsFromDb[i] ?? null;
-              const ok = tracksWavSyncedToDb || hasFile;
-              const wavLabel = tracksWavSyncedToDb
-                ? "аудио на сервере"
-                : hasFile
-                  ? "файл выбран"
-                  : dbUrl
-                    ? "выбери файл заново"
-                    : "нет аудио";
-              return (
-                // eslint-disable-next-line react/no-array-index-key
-                <li
-                  key={i}
-                  className="flex min-w-0 items-baseline gap-3 border-b border-omf-line py-3 text-[15px]"
-                >
-                  {tracks.length > 1 ? (
-                    <span className="w-5 shrink-0 tabular-nums text-omf-faint">{i + 1}</span>
-                  ) : null}
-                  <span className="min-w-0 flex-1 truncate">{t.title || "Без названия"}</span>
-                  <span
-                    className={`shrink-0 text-[13px] ${ok ? "text-omf-graphite" : "text-omf-red"}`}
-                  >
-                    {wavLabel}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-
-        {missingFiles && (
-          <div className="rounded-control border border-omf-yellow px-4 py-3.5 text-[14px] leading-relaxed text-omf-ink">
-            Чтобы отправить релиз, выбери WAV-файлы заново: после возврата из черновика приложение
-            их не помнит.{" "}
-            <Link href="/create/tracks" className="font-bold underline underline-offset-4">
-              Вернуться к трекам
-            </Link>
+        {!progressActive ? (
+          <div>
+            <label className="flex cursor-pointer items-start gap-3 text-[13px] leading-snug text-omf-graphite">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                disabled={isSubmitting}
+                aria-invalid={termsHint && !termsAccepted}
+                onChange={(e) => {
+                  triggerHaptic("light");
+                  setTermsAccepted(e.target.checked);
+                  if (e.target.checked) setTermsHint(false);
+                }}
+                className="mt-0.5 h-5 w-5 shrink-0 rounded-[6px] accent-[var(--omf-ultra)]"
+              />
+              <span>
+                Понимаю, что выпуск платный, цену согласует студия, и оплата не возвращается, даже если площадки не
+                пропустят релиз из-за содержания.
+              </span>
+            </label>
+            {referral?.hasPendingDiscount ? (
+              <p className="mt-2 pl-8 text-[13px] text-omf-yellow">
+                Скидка {formatRub(REFEREE_DISCOUNT_RUB)} по приглашению друга, студия учтёт её при оплате.
+              </p>
+            ) : null}
+            {termsHint && !termsAccepted ? (
+              <p role="alert" className="mt-2 pl-8 text-[13px] text-omf-red">
+                Отметь галочку, чтобы отправить релиз.
+              </p>
+            ) : null}
           </div>
+        ) : null}
+
+        {showProgressPanel ? <UploadProgress label={stageLabel} progress={submitProgress} /> : null}
+
+        {submitError && (
+          <p className="break-words text-center text-[14px] leading-relaxed text-omf-red">
+            {submitError}{" "}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("light");
+                router.push("/create/tracks");
+              }}
+              className="inline font-bold underline underline-offset-4"
+            >
+              Вернуться к трекам
+            </button>
+          </p>
         )}
 
-        <div>
-          {!progressActive ? (
-            <div className="mb-4">
-              <label className="flex cursor-pointer items-start gap-3 text-[14px] leading-relaxed text-omf-graphite">
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  disabled={isSubmitting}
-                  aria-invalid={termsHint && !termsAccepted}
-                  onChange={(e) => {
-                    triggerHaptic("light");
-                    setTermsAccepted(e.target.checked);
-                    if (e.target.checked) setTermsHint(false);
-                  }}
-                  className="mt-0.5 h-5 w-5 shrink-0 rounded-[6px] accent-[var(--omf-ultra)]"
-                />
-                <span>
-                  Выпуск платный, стоимость согласовывается со студией. Оплата не возвращается, в
-                  том числе если площадки не пропустили релиз из-за содержания.
-                </span>
-              </label>
-              {referral?.hasPendingDiscount ? (
-                <p className="mt-2 pl-8 text-[14px] text-omf-ink">
-                  🎁 Скидка {formatRub(REFEREE_DISCOUNT_RUB)} по приглашению друга — студия учтёт её при оплате.
-                </p>
-              ) : null}
-              {termsHint && !termsAccepted ? (
-                <p role="alert" className="mt-2 pl-8 text-[14px] text-omf-red">
-                  Отметь галочку, чтобы отправить релиз.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          {!progressActive ? (
+        {!progressActive ? (
+          <WizardActionBar>
             <button
               type="button"
               disabled={submitBlocked}
               onClick={() => void handleSubmit()}
               className={cn(
-                "create-flow-submit-target omf-btn-primary h-14 w-full text-[16px]",
+                "create-flow-submit-target omf-btn-primary h-[52px] w-full text-[16px] font-medium",
                 termsAccepted && !submitBlocked && !tracksUploadInProgress && "omf-btn-shine"
               )}
             >
-              <BusyLabel busy={tracksUploadInProgress} busyText="Загружаем WAV…">Отправить на проверку</BusyLabel>
+              <BusyLabel busy={tracksUploadInProgress} busyText="Загружаем WAV…">
+                Отправить на проверку
+              </BusyLabel>
             </button>
-          ) : null}
-
-          {showProgressPanel ? (
-            <div className={progressActive ? "" : "mt-4"}>
-              <UploadProgress label={stageLabel} progress={submitProgress} />
-            </div>
-          ) : null}
-
-          {submitError && (
-            <p className="mt-4 break-words text-center text-[14px] leading-relaxed text-omf-red">
-              {submitError}{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic("light");
-                  router.push("/create/tracks");
-                }}
-                className="inline font-bold underline underline-offset-4"
-              >
-                Вернуться к трекам
-              </button>
-            </p>
-          )}
-        </div>
+          </WizardActionBar>
+        ) : null}
       </div>
     </CreateShell>
   );

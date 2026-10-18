@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { CreateShell } from "@/features/release/createRelease/components/CreateShell";
+import { WizardActionBar } from "@/features/release/createRelease/components/WizardActionBar";
 import { StepGate } from "@/features/release/createRelease/components/StepGate";
 import { useStepGuard } from "@/features/release/createRelease/guards";
 import {
@@ -141,7 +142,6 @@ export default function CreateAssetsPage() {
           <div>
             <div>
               <FileUploader
-                label="Так релиз увидят слушатели на площадках"
                 accept=".jpg,.jpeg,.png"
                 maxSizeMb={RELEASE_FILE_LIMITS.artworkMaxMb}
                 type="cover"
@@ -152,16 +152,18 @@ export default function CreateAssetsPage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            disabled={!canGoNext || isUploading}
-            onClick={handleNext}
-            className="create-flow-submit-target omf-btn-primary h-14 w-full text-[16px]"
-          >
-            <BusyLabel busy={isUploading} busyText="Загружаем обложку…">Дальше: треки</BusyLabel>
-          </button>
-
           <FormFieldError message={submitError ?? undefined} messageClassName="text-center" />
+
+          <WizardActionBar>
+            <button
+              type="button"
+              disabled={!canGoNext || isUploading}
+              onClick={handleNext}
+              className="create-flow-submit-target omf-btn-primary h-[52px] w-full text-[16px] font-medium"
+            >
+              <BusyLabel busy={isUploading} busyText="Загружаем обложку…">Дальше: треки</BusyLabel>
+            </button>
+          </WizardActionBar>
         </div>
       )}
     </CreateShell>
