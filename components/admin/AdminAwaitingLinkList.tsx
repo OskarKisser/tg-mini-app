@@ -6,6 +6,7 @@ import { ReleaseSleeve } from "@/components/ReleaseSleeve";
 import { hapticMap } from "@/lib/haptic-map";
 import { formatAgoRu } from "@/lib/admin-release-metadata";
 import { DSP_REVIEW_DAYS_TEXT } from "@/lib/release-next-step";
+import { cn } from "@/lib/utils";
 import type { AdminAwaitingLinkRelease } from "@/types/admin";
 
 const COLLAPSED_COUNT = 5;
@@ -13,31 +14,34 @@ const COLLAPSED_COUNT = 5;
 /** Принятые релизы без ссылки на пресейв: дольше всех ждущие сверху. */
 export function AdminAwaitingLinkList({
   rows,
-  onAddLink
+  onAddLink,
+  asTab = false
 }: {
   rows: AdminAwaitingLinkRelease[];
   onAddLink: (releaseId: string) => void;
+  /** Отдельная вкладка «Ждут ссылку»: без своего заголовка и без сворачивания. */
+  asTab?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   if (rows.length === 0) return null;
-  const visible = expanded ? rows : rows.slice(0, COLLAPSED_COUNT);
+  const visible = expanded || asTab ? rows : rows.slice(0, COLLAPSED_COUNT);
 
   return (
-    <section className="mt-10" aria-labelledby="admin-awaiting-link">
-      <h2 id="admin-awaiting-link" className="text-[15px] font-bold tracking-tight">
-        Ждут ссылку: {rows.length}
-      </h2>
-      <p className="mt-0.5 text-[13px] text-omf-faint">
-        Приняты и ушли на площадки (обычно {DSP_REVIEW_DAYS_TEXT}). Когда будет UPC, сделай BandLink и добавь ссылку.
+    <section className={asTab ? undefined : "mt-10"} aria-label="Ждут ссылку">
+      {asTab ? null : (
+        <h2 className="text-[15px] font-bold tracking-tight">Ждут ссылку: {rows.length}</h2>
+      )}
+      <p className={cn("text-[13px] leading-snug text-omf-graphite", asTab ? "" : "mt-0.5")}>
+        Когда площадки выдадут UPC, сделай ссылку BandLink и добавь её сюда. Обычно {DSP_REVIEW_DAYS_TEXT}.
       </p>
-      <ul className="mt-1">
+      <ul className="mt-3 flex flex-col gap-2">
         {visible.map((r) => (
-          <li key={r.id} className="flex items-center gap-3 border-b border-omf-line py-3">
+          <li key={r.id} className="flex items-center gap-3 rounded-[18px] bg-omf-surface p-2.5">
             <Link
               href={`/admin/release/${r.id}`}
               className="omf-focus flex min-w-0 flex-1 items-center gap-3 rounded-[10px]"
             >
-              <div className="w-12 shrink-0">
+              <div className="w-14 shrink-0">
                 <ReleaseSleeve seed={r.id} title={r.title} artist={r.artist_name} coverUrl={r.artwork_url} size="thumb" />
               </div>
               <div className="min-w-0">
@@ -55,14 +59,14 @@ export function AdminAwaitingLinkList({
                 hapticMap.impactLight();
                 onAddLink(r.id);
               }}
-              className="omf-btn-secondary h-10 shrink-0 px-4 text-[14px]"
+              className="omf-btn-primary h-9 min-h-0 shrink-0 rounded-[10px] px-3.5 text-[13px] font-semibold"
             >
               Ссылка
             </button>
           </li>
         ))}
       </ul>
-      {rows.length > COLLAPSED_COUNT ? (
+      {!asTab && rows.length > COLLAPSED_COUNT ? (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}

@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { History, ListMusic, RefreshCcw } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { toast } from "sonner";
 import { AdminApproveSmartLinkModal, type ApproveModalMode } from "@/components/AdminApproveSmartLinkModal";
 import { AdminAwaitingLinkList } from "@/components/admin/AdminAwaitingLinkList";
+import { AdminTabs, type AdminTab } from "@/components/admin/AdminTabs";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { fetchAdminAwaitingLink } from "@/features/admin/awaiting-link";
 import { AdminRejectModal } from "@/components/AdminRejectModal";
 import { AdminReleaseCard } from "@/components/AdminReleaseCard";
@@ -30,7 +31,6 @@ import { SWR_LIST_OPTIONS } from "@/lib/swr-config";
 import { withRequestTimeout } from "@/lib/withRequestTimeout";
 import { useIsTelegramMiniApp } from "@/lib/hooks/useIsTelegramMiniApp";
 import { cn } from "@/lib/utils";
-import { RefreshIcon } from "@/components/RefreshIcon";
 
 type ModerationQueueRow = {
   release: ReleaseRecord;
@@ -41,8 +41,9 @@ type QueueFilterKey = "all" | "with_errors";
 
 const ADMIN_QUEUE_TIMEOUT_MS = 15000;
 
-export default function AdminPage() {
+function AdminPageInner() {
   const router = useRouter();
+  const view: AdminTab = useSearchParams().get("view") === "links" ? "links" : "queue";
   const [userId, setUserId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -346,50 +347,23 @@ export default function AdminPage() {
   const showQueueSkeleton = isLoading && data === undefined;
   return (
     <div className="mx-auto min-h-app max-w-lg px-1 pb-40 pt-6 text-omf-ink lg:max-w-3xl">
-      <PullRefreshBrand />
+      <PullRefreshBrand onRefresh={() => void refreshAll()} />
 
-      {/* Иконки — в строке со счётчиком: рядом с крупным заголовком три не влезают на 375px. */}
-      <header className="mb-6">
-        <div className="-mr-2 flex items-center justify-between gap-3">
-          <p className="min-w-0 text-[13px] text-omf-graphite">
-            В очереди: {moderationQueue.length}
+      <ScreenHeader
+        className="mb-4"
+        label={
+          <>
+            Ждут решения: {moderationQueue.length}
             {stats?.oldest_wait_hours != null && moderationQueue.length > 0 ? (
               <span className={stats.oldest_wait_hours >= 24 ? "text-omf-red" : undefined}>
-                {" "}
-                · ждёт до {stats.oldest_wait_hours} ч
+                , самый долгий {stats.oldest_wait_hours} ч
               </span>
             ) : null}
-          </p>
-          <div className="flex shrink-0 items-center gap-1">
-            <Link
-              href="/admin/catalog"
-              aria-label="Каталог: все отгруженные треки"
-              title="Каталог"
-              className="omf-focus flex h-10 w-10 items-center justify-center rounded-full text-omf-graphite transition-colors hover:bg-omf-surface hover:text-omf-ink"
-            >
-              <ListMusic className="h-[18px] w-[18px]" aria-hidden />
-            </Link>
-            <Link
-              href="/admin/history"
-              aria-label="История решений"
-              title="История решений"
-              className="omf-focus flex h-10 w-10 items-center justify-center rounded-full text-omf-graphite transition-colors hover:bg-omf-surface hover:text-omf-ink"
-            >
-              <History className="h-[18px] w-[18px]" aria-hidden />
-            </Link>
-            <button
-              type="button"
-              onClick={() => void refreshAll()}
-              disabled={isValidating}
-              aria-label="Обновить очередь"
-              className="omf-focus flex h-10 w-10 items-center justify-center rounded-full text-omf-graphite transition-colors hover:bg-omf-surface hover:text-omf-ink disabled:opacity-50"
-            >
-              <RefreshIcon icon={RefreshCcw} spinning={isValidating} />
-            </button>
-          </div>
-        </div>
-        <h1 className="mt-1 text-[40px] font-extrabold leading-[0.92] tracking-[-0.045em]">Модерация</h1>
-      </header>
+          </>
+        }
+        title="Модерация"
+      />
+      <AdminTabs active={view} counts={{ queue: moderationQueue.length, links: awaitingLink?.length }} />
 
       <AdminApproveSmartLinkModal
         releaseId={approveModal?.id ?? null}
@@ -418,6 +392,8 @@ export default function AdminPage() {
         onSubmit={(reason, keys) => void handleBulkReject(reason, keys)}
       />
 
+      {view === "queue" ? (
+        <>
       <div className="mb-4 flex items-center gap-2">
         <div
           className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -517,7 +493,7 @@ export default function AdminPage() {
       )}
 
       {moderationQueueFiltered.length > 0 && (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-2">
           {moderationQueueFiltered.map((row, index) => (
             <AdminReleaseCard
               key={row.release.id}
@@ -539,17 +515,22 @@ export default function AdminPage() {
         </div>
       )}
 
-      {awaitingLink && awaitingLink.length > 0 ? (
-        <AdminAwaitingLinkList
-          rows={awaitingLink}
-          onAddLink={(id) => setApproveModal({ id, mode: "link" })}
-        />
-      ) : null}
-      {stats ? <AdminStuckList stuck={stats.stuck} onDeleted={() => void mutateStats()} /> : null}
-      {stats && !statsErrorMessage ? <AdminStatsPanel stats={stats} /> : null}
-      {statsErrorMessage ? (
-        <p className="mt-6 text-[14px] text-omf-yellow">Не удалось загрузить счётчики: {statsErrorMessage}</p>
-      ) : null}
+          {stats ? <AdminStuckList stuck={stats.stuck} onDeleted={() => void mutateStats()} /> : null}
+          {stats && !statsErrorMessage ? <AdminStatsPanel stats={stats} /> : null}
+          {statsErrorMessage ? (
+            <p className="mt-6 text-[14px] text-omf-yellow">Не удалось загрузить счётчики: {statsErrorMessage}</p>
+          ) : null}
+        </>
+      ) : awaitingLink && awaitingLink.length > 0 ? (
+        <AdminAwaitingLinkList asTab rows={awaitingLink} onAddLink={(id) => setApproveModal({ id, mode: "link" })} />
+      ) : (
+        <div className="pt-2">
+          <p className="text-[18px] font-bold tracking-tight">Все ссылки на месте</p>
+          <p className="mt-1.5 text-[14px] text-omf-graphite">
+            Здесь появятся принятые релизы, которым ещё нужна ссылка BandLink.
+          </p>
+        </div>
+      )}
 
       {selectMode && portalReady
         ? createPortal(
@@ -606,5 +587,13 @@ export default function AdminPage() {
           )
         : null}
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminPageInner />
+    </Suspense>
   );
 }

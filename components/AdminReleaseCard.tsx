@@ -3,8 +3,9 @@
 import { memo, useMemo } from "react";
 import Link from "next/link";
 import type { Variants } from "framer-motion";
-import { Check, ChevronRight } from "lucide-react";
+import { Check } from "lucide-react";
 import { ReleaseSleeve } from "@/components/ReleaseSleeve";
+import { StatusRing } from "@/components/library/StatusRing";
 import { AudioPlayerLazy } from "@/components/AudioPlayerLazy";
 import {
   getReleaseDisplayTitle,
@@ -15,7 +16,7 @@ import { normalizeReleaseStatus, type CanonicalReleaseStatus } from "@/lib/relea
 import { triggerHaptic } from "@/lib/telegram";
 import { featuringNamesFromCollaboratorsJson } from "@/lib/collaborators";
 import { describeHistoryDecision, describePreviousRejection } from "@/lib/rejection-reasons";
-import { pluralRu } from "@/lib/release-next-step";
+import { getReleaseNextStep, pluralRu } from "@/lib/release-next-step";
 import { describePayment, type PaymentTone } from "@/lib/release-payment";
 import { cn } from "@/lib/utils";
 
@@ -34,12 +35,12 @@ function statusTextClass(status: CanonicalReleaseStatus): string {
   if (status === "failed") return "text-omf-red";
   return "text-omf-graphite";
 }
-
-const PAYMENT_TONE_CLASS: Record<PaymentTone, string> = {
-  done: "text-omf-green",
-  wait: "text-omf-yellow",
-  problem: "text-omf-red",
-  muted: "text-omf-faint"
+/** Оплата плашкой: цвет по смыслу, чтобы видеть с одного взгляда. */
+const PAYMENT_PILL_CLASS: Record<PaymentTone, string> = {
+  done: "bg-[rgba(31,157,99,0.16)] text-[#3ccf8e]",
+  wait: "bg-[rgba(245,217,10,0.13)] text-omf-yellow",
+  problem: "bg-[rgba(229,72,77,0.14)] text-[#ff8a8d]",
+  muted: "bg-omf-surface-2 text-omf-graphite"
 };
 
 function releaseTypeLabel(type: ReleaseRecord["release_type"]): string {
@@ -143,7 +144,7 @@ function AdminReleaseCardInner({
 
   const header = (
     <>
-      <div className="relative w-[72px] shrink-0">
+      <div className="relative w-14 shrink-0">
         <ReleaseSleeve
           seed={release.id}
           title={displayTitle}
@@ -165,24 +166,14 @@ function AdminReleaseCardInner({
         ) : null}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[17px] font-bold leading-tight tracking-[-0.02em]">
-          {displayTitle}
-        </p>
-        <div className="mt-0.5 flex items-baseline justify-between gap-2">
-          <p className="min-w-0 truncate text-[14px] text-omf-graphite">{release.artist_name}</p>
-          {detailHref && !selectMode ? (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-[13px] text-omf-ultra-text">
-              Открыть
-              <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-            </span>
-          ) : null}
-        </div>
+        <p className="truncate text-[16px] font-semibold leading-tight tracking-[-0.01em]">{displayTitle}</p>
+        <p className="mt-0.5 min-w-0 truncate text-[13px] text-omf-graphite">{release.artist_name}</p>
         {featuringNames.length > 0 ? (
           <p className="truncate text-[13px] text-omf-graphite" title={featuringLabel}>
             feat. {featuringLabel}
           </p>
         ) : null}
-        <p className="mt-1.5 text-[13px] text-omf-faint">{metaLine}</p>
+        <p className="mt-0.5 text-[12.5px] text-omf-faint">{metaLine}</p>
         {decisionLine ? (
           <p className="mt-1.5 line-clamp-2 break-words text-[13px] leading-snug text-omf-graphite">
             {decisionLine}
@@ -201,17 +192,28 @@ function AdminReleaseCardInner({
             ) : null}
           </p>
         ) : null}
-        <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
-          <span className={statusTextClass(canonical)}>{STATUS_LABEL[canonical]}</span>
-          <span className={PAYMENT_TONE_CLASS[payment.tone]}>{payment.label}</span>
-          {hasError ? <span className="text-omf-red">есть ошибка</span> : null}
+        <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[11.5px] font-semibold">
+          {showModerationActions && canonical !== "processing" ? (
+            <span className={statusTextClass(canonical)}>{STATUS_LABEL[canonical]}</span>
+          ) : null}
+          <span className={cn("rounded-full px-2 py-[3px]", PAYMENT_PILL_CLASS[payment.tone])}>{payment.label}</span>
+          {hasError ? (
+            <span className="rounded-full bg-[rgba(229,72,77,0.14)] px-2 py-[3px] text-[#ff8a8d]">есть ошибка</span>
+          ) : null}
         </p>
       </div>
+      {!showModerationActions ? (
+        <StatusRing
+          kind={getReleaseNextStep({ status: release.status, smartLink: release.smart_link }).kind}
+          size={44}
+          className="self-center"
+        />
+      ) : null}
     </>
   );
 
   return (
-    <article className="border-b border-omf-line py-5">
+    <article className="rounded-[18px] bg-omf-surface p-3">
       {selectMode ? (
         <button
           type="button"
@@ -222,8 +224,8 @@ function AdminReleaseCardInner({
             onToggleSelect?.();
           }}
           className={cn(
-            "omf-focus -mx-2 -my-2 flex w-[calc(100%+1rem)] gap-3.5 rounded-[14px] p-2 text-left transition-colors",
-            selected ? "bg-omf-surface" : "hover:bg-omf-surface"
+            "omf-focus -m-1 flex w-[calc(100%+0.5rem)] gap-3 rounded-[14px] p-1 text-left transition-colors",
+            selected ? "bg-omf-surface-2" : "hover:bg-omf-surface-2"
           )}
         >
           {header}
@@ -231,16 +233,16 @@ function AdminReleaseCardInner({
       ) : detailHref ? (
         <Link
           href={detailHref}
-          className="omf-focus -mx-1 flex gap-3.5 rounded-[12px] px-1 transition-colors hover:bg-omf-surface"
+          className="omf-focus flex gap-3 rounded-[12px] transition-transform active:scale-[0.99]"
         >
           {header}
         </Link>
       ) : (
-        <div className="flex gap-3.5">{header}</div>
+        <div className="flex gap-3">{header}</div>
       )}
 
       {showAudioPreview ? (
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 space-y-2">
           {audioItems.length === 0 ? (
             <p className="text-[14px] text-omf-graphite">Аудио пока нет, послушать нечего.</p>
           ) : (
@@ -252,18 +254,7 @@ function AdminReleaseCardInner({
       ) : null}
 
       {showModerationActions && !selectMode ? (
-        <div className="mt-4 grid grid-cols-2 gap-2.5">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              triggerHaptic("light");
-              onOpenReject();
-            }}
-            className="omf-btn-secondary w-full disabled:opacity-50"
-          >
-            Вернуть
-          </button>
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <button
             type="button"
             disabled={busy}
@@ -271,9 +262,20 @@ function AdminReleaseCardInner({
               triggerHaptic("light");
               onOpenApprove();
             }}
-            className="omf-btn-ink w-full disabled:opacity-50"
+            className="omf-btn-primary min-h-[42px] w-full rounded-[12px] text-[14px] font-medium disabled:opacity-50"
           >
             Принять
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              triggerHaptic("light");
+              onOpenReject();
+            }}
+            className="omf-focus min-h-[42px] w-full rounded-[12px] bg-omf-surface-2 text-[14px] font-medium text-omf-ink transition-transform active:scale-[0.98] disabled:opacity-50"
+          >
+            Вернуть
           </button>
         </div>
       ) : null}
