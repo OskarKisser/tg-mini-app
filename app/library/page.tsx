@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { ChevronRight, Plus, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PullRefreshBrand } from "@/components/PullRefreshBrand";
 import { ReleaseRow } from "@/components/library/ReleaseRow";
@@ -21,6 +22,7 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { useIsTelegramMiniApp } from "@/lib/hooks/useIsTelegramMiniApp";
 import { pickProfileGreetingName, useAuthProfile } from "@/lib/hooks/useAuthProfile";
 import { cn } from "@/lib/utils";
+import { pickHeroArtistName } from "@/lib/artist-name";
 import { RejectionNotice } from "@/components/RejectionNotice";
 import { getReleaseNextStep, NEXT_STEP_TONE_CLASS } from "@/lib/release-next-step";
 import { describeRejection, type RejectionSummary } from "@/lib/rejection-reasons";
@@ -311,22 +313,7 @@ function LibraryPageInner() {
 
   const isEmpty = !showAuthWait && !showListSkeleton && !error && releases.length === 0;
 
-  const heroArtistName = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const r of releases) {
-      const name = r.artist_name?.trim();
-      if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
-    }
-    let best: string | null = null;
-    let bestCount = 0;
-    counts.forEach((count, name) => {
-      if (count > bestCount) {
-        best = name;
-        bestCount = count;
-      }
-    });
-    return best ?? artistFirstName;
-  }, [releases, artistFirstName]);
+  const heroArtistName = useMemo(() => pickHeroArtistName(releases, artistFirstName), [releases, artistFirstName]);
 
   /** Открыть релиз: черновик — в мастер, отклонённый — причина и «Исправить», остальное — экран релиза. */
   const openRelease = (release: ReleaseListRow) => {
@@ -402,9 +389,20 @@ function LibraryPageInner() {
         <header className="mb-6 flex items-end justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[13px] text-omf-graphite">{heroLabel}</p>
-            <h1 className="mt-1 break-words text-[36px] font-bold leading-[0.95] tracking-[-0.05em] text-omf-ink sm:text-[48px]">
-              {heroArtistName}
-            </h1>
+            <Link
+              href="/settings"
+              onClick={() => hapticMap.impactLight()}
+              aria-label={`Профиль: ${heroArtistName}`}
+              className="omf-focus group mt-1 inline-flex max-w-full items-center gap-1 rounded-[6px]"
+            >
+              <h1 className="min-w-0 break-words text-[36px] font-bold leading-[0.95] tracking-[-0.05em] text-omf-ink sm:text-[48px]">
+                {heroArtistName}
+              </h1>
+              <ChevronRight
+                className="h-6 w-6 shrink-0 text-omf-faint transition-colors group-hover:text-omf-graphite"
+                aria-hidden
+              />
+            </Link>
           </div>
           <button
             type="button"

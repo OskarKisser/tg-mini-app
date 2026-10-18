@@ -5,7 +5,8 @@ import { hapticMap } from "@/lib/haptic-map";
 import { getTelegramApiAuthHeaders } from "@/lib/telegram";
 import { BusyLabel } from "@/components/BusyLabel";
 
-export function FeedbackCard() {
+/** Форма «Написать нам». `bare` — без своего заголовка, когда она внутри листа с заголовком. */
+export function FeedbackCard({ bare = false }: { bare?: boolean } = {}) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
@@ -55,11 +56,15 @@ export function FeedbackCard() {
   };
 
   return (
-    <section className="border-t border-omf-line pt-6">
-      <h2 className="text-[20px] font-bold tracking-tight">Нашёл ошибку или есть идея?</h2>
-      <p className="mt-1.5 text-[14px] leading-relaxed text-omf-graphite">
-        Напиши, что неудобно или сломалось. Сообщение увидит команда сервиса.
-      </p>
+    <section className={bare ? undefined : "border-t border-omf-line pt-6"}>
+      {bare ? null : (
+        <>
+          <h2 className="text-[20px] font-bold tracking-tight">Нашёл ошибку или есть идея?</h2>
+          <p className="mt-1.5 text-[14px] leading-relaxed text-omf-graphite">
+            Напиши, что неудобно или сломалось. Сообщение увидит команда сервиса.
+          </p>
+        </>
+      )}
 
       <textarea
         value={message}
@@ -67,7 +72,7 @@ export function FeedbackCard() {
         placeholder="Что случилось или что улучшить"
         aria-label="Сообщение для команды"
         maxLength={4000}
-        className="omf-focus mt-4 min-h-[120px] w-full rounded-control border border-omf-line bg-omf-surface px-4 py-3 text-[16px] text-omf-ink outline-none transition-colors placeholder:text-omf-faint focus:border-omf-ultra"
+        className={`omf-focus ${bare ? "" : "mt-4 "}min-h-[120px] w-full rounded-control border border-omf-line ${bare ? "bg-omf-bg" : "bg-omf-surface"} px-4 py-3 text-[16px] text-omf-ink outline-none transition-colors placeholder:text-omf-faint focus:border-omf-ultra`}
       />
 
       <div className="mt-2 flex items-center justify-between text-[13px] text-omf-faint">

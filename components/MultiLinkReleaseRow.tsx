@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { Copy, ExternalLink } from "lucide-react";
+import { Copy } from "lucide-react";
 import { ReleaseSleeve } from "@/components/ReleaseSleeve";
 import { toast } from "sonner";
 import { openSmartLink } from "@/lib/open-smart-link";
@@ -28,13 +27,8 @@ function compactUrlForCard(url: string): string {
   }
 }
 
-export function MultiLinkReleaseRow({
-  releaseId,
-  title,
-  artist,
-  smartLink,
-  coverUrl
-}: MultiLinkReleaseRowProps) {
+/** Строка раздела «Ссылки»: тап открывает ссылку, кнопка справа копирует. */
+export function MultiLinkReleaseRow({ releaseId, title, artist, smartLink, coverUrl }: MultiLinkReleaseRowProps) {
   const lineUrl = compactUrlForCard(smartLink);
 
   const copy = async () => {
@@ -43,53 +37,38 @@ export function MultiLinkReleaseRow({
       hapticMap.notificationSuccess();
       toast.success("Ссылка скопирована");
     } catch {
-      toast.error("Не получилось скопировать. Выдели ссылку и скопируй вручную.");
+      toast.error("Не получилось скопировать. Открой ссылку и скопируй адрес из браузера.");
     }
   };
 
   return (
-    <article className="border-b border-omf-line py-5">
-      <div className="flex items-center gap-3.5">
-        <div className="w-[72px] shrink-0">
-          <ReleaseSleeve seed={releaseId} title={title} artist={artist} coverUrl={coverUrl} size="thumb" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[17px] font-bold leading-tight tracking-[-0.02em]">{title}</p>
-          <p className="mt-0.5 truncate text-[14px] text-omf-graphite">{artist}</p>
-          <p className="mt-1.5 truncate text-[13px] text-omf-ultra-text" title={smartLink}>
-            {lineUrl}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-[1fr_auto] gap-2.5">
-        <button
-          type="button"
-          onClick={() => {
-            hapticMap.impactLight();
-            openSmartLink(smartLink);
-          }}
-          className="omf-btn-ink w-full"
-        >
-          <ExternalLink className="h-4 w-4" aria-hidden />
-          Открыть ссылку
-        </button>
-        <button
-          type="button"
-          onClick={() => void copy()}
-          aria-label="Скопировать ссылку"
-          className="omf-btn-secondary w-12 px-0"
-        >
-          <Copy className="h-4 w-4" aria-hidden />
-        </button>
-      </div>
-      <Link
-        href={`/release/${releaseId}`}
-        onClick={() => hapticMap.impactLight()}
-        className="omf-focus mt-3 inline-block rounded-full text-[14px] text-omf-graphite transition-colors hover:text-omf-ink"
+    <div className="grid grid-cols-[1fr_40px] items-center gap-3 rounded-[18px] bg-omf-surface p-2.5">
+      <button
+        type="button"
+        onClick={() => {
+          hapticMap.impactLight();
+          openSmartLink(smartLink);
+        }}
+        className="omf-focus grid min-w-0 grid-cols-[56px_1fr] items-center gap-3.5 rounded-[12px] text-left transition-transform active:scale-[0.98]"
       >
-        Страница релиза
-      </Link>
-    </article>
+        <span className="block w-14">
+          <ReleaseSleeve seed={releaseId} title={title} artist={artist} coverUrl={coverUrl} size="thumb" />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[16px] font-semibold tracking-[-0.01em] text-omf-ink">{title}</span>
+          <span className="mt-0.5 block truncate text-[12.5px] text-omf-ultra-text" title={smartLink}>
+            {lineUrl}
+          </span>
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={() => void copy()}
+        aria-label={`Скопировать ссылку на «${title}»`}
+        className="omf-focus flex h-10 w-10 items-center justify-center rounded-[12px] bg-omf-surface-2 text-omf-ink transition-transform active:scale-95"
+      >
+        <Copy className="h-[18px] w-[18px]" aria-hidden />
+      </button>
+    </div>
   );
 }
