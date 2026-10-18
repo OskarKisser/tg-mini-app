@@ -1,6 +1,6 @@
 "use client";
 
-import { Gift } from "lucide-react";
+import { Copy, Gift, Send } from "lucide-react";
 import { toast } from "sonner";
 import { getTelegramWebApp, triggerHaptic } from "@/lib/telegram";
 import { useReferral } from "@/lib/hooks/useReferral";
@@ -32,33 +32,33 @@ async function copyLink(link: string): Promise<void> {
   }
 }
 
-/** «Пригласи друга» в настройках: ссылка, кнопки и счётчики. Только в Telegram. */
+/** «Пригласи друга» в профиле: ссылка, кнопка отправки и счётчики. Только в Telegram. */
 export function ReferralCard() {
   const { data, error, isLoading } = useReferral();
 
   if (isLoading) {
     return (
-      <div className="border-b border-omf-line py-4" aria-busy="true">
-        <div className="h-4 w-40 animate-pulse rounded bg-omf-surface" />
-        <div className="mt-3 h-12 w-full animate-pulse rounded-2xl bg-omf-surface" />
+      <div className="rounded-[18px] bg-omf-surface p-4" aria-busy="true">
+        <div className="h-4 w-40 animate-pulse rounded bg-omf-surface-2" />
+        <div className="mt-3 h-11 w-full animate-pulse rounded-[12px] bg-omf-surface-2" />
       </div>
     );
   }
   if (error || !data) return null;
 
   return (
-    <section className="border-b border-omf-line py-4" aria-labelledby="referral-title">
-      <p id="referral-title" className="text-[16px] text-omf-ink">
+    <section className="rounded-[18px] bg-omf-surface p-4" aria-labelledby="referral-title">
+      <p id="referral-title" className="text-[16px] font-semibold text-omf-ink">
         Пригласи друга
       </p>
-      <p className="mt-0.5 text-[14px] text-omf-graphite">
-        Другу — скидка {formatRub(REFEREE_DISCOUNT_RUB)} на первый релиз. Тебе — {formatRub(REFERRER_REWARD_RUB)}, когда он
+      <p className="mt-1 text-[13.5px] leading-snug text-omf-graphite">
+        Другу −{formatRub(REFEREE_DISCOUNT_RUB)} на первый релиз, тебе +{formatRub(REFERRER_REWARD_RUB)}, когда он
         оплатит.
       </p>
 
       {data.hasPendingDiscount ? (
-        <p className="mt-3 text-[14px] text-omf-ink">
-          🎁 У тебя скидка {formatRub(REFEREE_DISCOUNT_RUB)} на первый релиз — студия учтёт её при оплате.
+        <p className="mt-3 text-[13.5px] text-omf-yellow">
+          У тебя скидка {formatRub(REFEREE_DISCOUNT_RUB)} на первый релиз, студия учтёт её при оплате.
         </p>
       ) : null}
 
@@ -70,10 +70,11 @@ export function ReferralCard() {
               triggerHaptic("light");
               void copyLink(data.link!);
             }}
-            className="omf-focus mt-3 w-full truncate rounded-2xl bg-omf-surface px-4 py-3 text-left text-[14px] text-omf-ink"
+            className="omf-focus mt-3 flex h-11 w-full items-center justify-between gap-3 rounded-[12px] bg-omf-bg px-3.5 text-left text-[13.5px] text-omf-ink"
             aria-label="Скопировать ссылку-приглашение"
           >
-            {data.link}
+            <span className="truncate">{data.link.replace(/^https?:\/\//, "")}</span>
+            <Copy className="h-[17px] w-[17px] shrink-0 text-omf-graphite" aria-hidden />
           </button>
           <button
             type="button"
@@ -81,8 +82,9 @@ export function ReferralCard() {
               triggerHaptic("light");
               shareReferralLink(data.link!);
             }}
-            className="omf-btn-primary mt-3 h-12 w-full text-[16px]"
+            className="omf-btn-primary mt-2.5 h-12 w-full text-[15px] font-medium"
           >
+            <Send className="h-[17px] w-[17px]" aria-hidden />
             Отправить другу
           </button>
         </>
@@ -93,9 +95,18 @@ export function ReferralCard() {
       )}
 
       {data.invited > 0 ? (
-        <p className="mt-3 text-[14px] text-omf-graphite">
-          Пришли: {data.invited} · оплатили: {data.paid}
-          {data.available > 0 ? ` · ждут выплаты: ${formatRub(data.available * REFERRER_REWARD_RUB)}` : ""}
+        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-omf-graphite">
+          <span>
+            Пришли: <span className="text-omf-ink">{data.invited}</span>
+          </span>
+          <span>
+            Оплатили: <span className="text-omf-ink">{data.paid}</span>
+          </span>
+          {data.available > 0 ? (
+            <span>
+              Ждут выплаты: <span className="text-omf-ink">{formatRub(data.available * REFERRER_REWARD_RUB)}</span>
+            </span>
+          ) : null}
         </p>
       ) : null}
     </section>

@@ -2,7 +2,12 @@
 
 import { useState, useCallback } from "react";
 import useSWR from "swr";
-import { getTelegramApiAuthHeaders } from "@/lib/telegram";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ChevronRight } from "lucide-react";
+import { getTelegramApiAuthHeaders, getTelegramUsername } from "@/lib/telegram";
+import { useReleases } from "@/lib/hooks/useReleases";
+import { pickHeroArtistName } from "@/lib/artist-name";
 import { toast } from "sonner";
 import { useIsTelegramMiniApp } from "@/lib/hooks/useIsTelegramMiniApp";
 import { useLogout, useWebAuth } from "@/lib/hooks/useWebAuth";
@@ -58,8 +63,8 @@ function ToggleRow({
   return (
     <div className="flex w-full items-center justify-between gap-4 border-b border-omf-line py-4">
       <div className="min-w-0">
-        <p className="text-[16px] text-omf-ink">{label}</p>
-        {hint ? <p className="mt-0.5 text-[14px] text-omf-graphite">{hint}</p> : null}
+        <p className="text-[15px] text-omf-ink">{label}</p>
+        {hint ? <p className="mt-0.5 text-[13px] text-omf-graphite">{hint}</p> : null}
       </div>
       <button
         type="button"
@@ -85,7 +90,13 @@ function ToggleRow({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const router = useRouter();
   const isTelegramContext = useIsTelegramMiniApp();
+  const { releases, greetingName } = useReleases();
+  const webUser = useWebAuth();
+  const artistName = pickHeroArtistName(releases, greetingName);
+  const tgUsername = isTelegramContext ? getTelegramUsername() : null;
+  const accountLine = tgUsername ? `@${tgUsername} в Telegram` : (webUser?.email ?? null);
   const {
     data: prefs,
     isLoading,
@@ -116,18 +127,43 @@ export default function SettingsPage() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
-  return (
-    <div className="mx-auto w-full max-w-lg px-1 pb-40 pt-6 text-omf-ink">
-      <h1 className="text-[40px] font-extrabold leading-[0.92] tracking-[-0.045em]">Настройки</h1>
+  const initial = (artistName.trim().charAt(0) || "•").toUpperCase();
 
-      <div className="mt-6">
+  return (
+    <div className="mx-auto w-full max-w-lg px-1 pb-40 pt-4 text-omf-ink">
+      <button
+        type="button"
+        onClick={() => router.back()}
+        className="omf-focus -ml-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-[14px] text-omf-graphite transition-colors hover:text-omf-ink"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden />
+        Релизы
+      </button>
+
+      <header className="mt-4 flex items-center gap-3.5">
+        <span
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-omf-ultra text-[26px] font-bold text-white"
+          aria-hidden
+        >
+          {initial}
+        </span>
+        <div className="min-w-0">
+          <h1 className="truncate text-[28px] font-bold leading-none tracking-[-0.045em]">{artistName}</h1>
+          {accountLine ? <p className="mt-1.5 truncate text-[13px] text-omf-graphite">{accountLine}</p> : null}
+        </div>
+      </header>
+
+      {isTelegramContext ? (
+        <div className="mt-6">
+          <ReferralCard />
+        </div>
+      ) : null}
+
+      <div className="mt-4">
         {!isTelegramContext ? (
-          <div className="border-b border-omf-line py-4">
-            <p className="text-[16px] text-omf-ink">Уведомления</p>
-            <p className="mt-0.5 text-[14px] text-omf-graphite">
-              В веб-версии решения модератора отмечены меткой «Новое» в списке релизов. Сообщения в
-              Telegram приходят, если открыть приложение из бота.
-            </p>
+          <div className="flex items-center justify-between gap-4 border-b border-omf-line py-4">
+            <p className="text-[15px] text-omf-ink">Уведомления</p>
+            <p className="text-right text-[13px] text-omf-graphite">Метка «Новое» в релизах</p>
           </div>
         ) : isLoading ? (
           <div className="flex items-center justify-between border-b border-omf-line py-4" aria-busy="true">
@@ -137,17 +173,19 @@ export default function SettingsPage() {
         ) : (
           <ToggleRow
             label="Уведомления"
-            hint="Сообщения в Telegram, когда модератор принял решение по релизу."
+            hint="Сообщение в Telegram, когда модератор принял решение"
             checked={prefs?.push_notifications ?? true}
             onChange={handleTogglePush}
             disabled={isSavingPush}
           />
         )}
-        {isTelegramContext ? <ReferralCard /> : null}
-        <div className="border-b border-omf-line py-4">
-          <p className="text-[16px] text-omf-ink">Оформление</p>
-          <p className="mt-0.5 text-[14px] text-omf-graphite">Приложение всегда тёмное.</p>
-        </div>
+        <Link
+          href="/requirements"
+          className="omf-focus flex items-center justify-between gap-4 border-b border-omf-line py-4 text-[15px] text-omf-ink"
+        >
+          Помощь и правила
+          <ChevronRight className="h-4 w-4 text-omf-faint" aria-hidden />
+        </Link>
       </div>
 
       <WebLogoutButton />
@@ -182,7 +220,7 @@ function WebLogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={isLoggingOut}
-      className="omf-btn-secondary mt-8 w-full text-omf-red disabled:opacity-50"
+      className="omf-focus mt-6 w-full rounded-control py-3 text-[15px] text-omf-red disabled:opacity-50"
     >
       {isLoggingOut ? "Выходим…" : "Выйти из аккаунта"}
     </button>

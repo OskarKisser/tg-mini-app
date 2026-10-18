@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, RefreshCcw } from "lucide-react";
 import useSWR from "swr";
 import { AdminReleaseCard } from "@/components/AdminReleaseCard";
 import { PullRefreshBrand } from "@/components/PullRefreshBrand";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { AdminTabs } from "@/components/admin/AdminTabs";
 import { AdminModerationQueueSkeleton } from "@/components/ui/LibrarySkeleton";
 import { fetchAdminModerationHistory } from "@/features/admin/moderation-history";
 import { isAdminUi, isAdminUiByWebSession } from "@/lib/admin";
@@ -19,7 +19,6 @@ import { withRequestTimeout } from "@/lib/withRequestTimeout";
 import { countHistoryByStatus, filterHistory, type HistoryStatusFilter } from "@/lib/admin-history-filter";
 import { hapticMap } from "@/lib/haptic-map";
 import { cn } from "@/lib/utils";
-import { RefreshIcon } from "@/components/RefreshIcon";
 
 type HistoryRow = {
   release: ReleaseRecord;
@@ -133,31 +132,10 @@ export default function AdminModerationHistoryPage() {
 
   return (
     <div className="mx-auto min-h-app max-w-lg px-1 pb-40 pt-4 text-omf-ink lg:max-w-3xl">
-      <PullRefreshBrand />
+      <PullRefreshBrand onRefresh={() => void mutate(undefined, { revalidate: true })} />
 
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <Link
-          href="/admin"
-          className="omf-focus -ml-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-[14px] text-omf-graphite transition-colors hover:text-omf-ink"
-        >
-          <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
-          Очередь
-        </Link>
-        <button
-          type="button"
-          onClick={() => void mutate(undefined, { revalidate: true })}
-          disabled={isValidating}
-          aria-label="Обновить историю"
-          className="omf-focus flex h-10 w-10 items-center justify-center rounded-full text-omf-graphite transition-colors hover:bg-omf-surface hover:text-omf-ink disabled:opacity-50"
-        >
-          <RefreshIcon icon={RefreshCcw} spinning={isValidating} />
-        </button>
-      </div>
-
-      <header className="mb-6">
-        <p className="text-[13px] text-omf-graphite">Принятые и возвращённые релизы</p>
-        <h1 className="mt-1 text-[40px] font-extrabold leading-[0.92] tracking-[-0.045em]">История</h1>
-      </header>
+      <ScreenHeader className="mb-4" label="Принятые и возвращённые" title="Модерация" />
+      <AdminTabs active="history" />
 
       {listTruncated && allRows.length > 0 && (
         <p className="mb-4 text-[14px] text-omf-yellow">
@@ -228,7 +206,7 @@ export default function AdminModerationHistoryPage() {
       )}
 
       {rows.length > 0 && (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-2">
           {visibleRows.map((row, index) => (
             <AdminReleaseCard
               key={row.release.id}

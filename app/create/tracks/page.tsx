@@ -8,6 +8,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { motion } from "framer-motion";
 import { CheckCircle2, ChevronDown, ChevronUp, UserPlus, X } from "lucide-react";
 import { CreateShell } from "@/features/release/createRelease/components/CreateShell";
+import { WizardActionBar } from "@/features/release/createRelease/components/WizardActionBar";
 import { StepGate } from "@/features/release/createRelease/components/StepGate";
 import { useStepGuard } from "@/features/release/createRelease/guards";
 import { tracksSchema } from "@/features/release/createRelease/schemas";
@@ -345,6 +346,7 @@ export default function CreateTracksPage() {
         />
       ) : (
         <form
+          id="create-tracks-form"
           onSubmit={handleSubmit(handleNext, () => triggerHaptic("error"))}
           className="space-y-6"
         >
@@ -409,7 +411,7 @@ export default function CreateTracksPage() {
                     </button>
                   )}
                 </div>
-              ) : (
+              ) : isSingle ? null : (
                 <div className="flex items-center justify-between gap-2">
                   <span className="min-w-0 truncate text-[16px] font-bold tracking-tight text-omf-ink">
                     Трек {index + 1}
@@ -529,9 +531,6 @@ export default function CreateTracksPage() {
                   {isSingle && index === 0 ? (
                     <div className="space-y-1.5">
                       <label className={`mb-2.5 block ${WIZARD_FIELD_LABEL_CLASS}`}>Название трека</label>
-                      <p className="mb-1 text-[13px] leading-relaxed text-omf-graphite">
-                        Обычно совпадает с названием релиза.
-                      </p>
                       <input
                         {...register(`tracks.${index}.title` as const, {
                           onChange: (e) => {
@@ -547,6 +546,7 @@ export default function CreateTracksPage() {
                         }`}
                       />
                       <FormFieldError message={errors.tracks?.[index]?.title?.message} />
+                      <p className="text-[12px] leading-snug text-omf-faint">Обычно совпадает с названием релиза</p>
                     </div>
                   ) : (
                     <div className="space-y-1.5">
@@ -737,20 +737,23 @@ export default function CreateTracksPage() {
             </button>
           )}
 
-          <button
-            type="submit"
-            disabled={!isValid || isSubmitting || isUploadingWav || isWavTransferActive}
-            className="create-flow-submit-target omf-btn-primary h-14 w-full text-[16px]"
-          >
-            <BusyLabel
-              busy={isUploadingWav || isWavTransferActive || isSubmitting}
-              busyText={isUploadingWav || isWavTransferActive ? "Загружаем WAV…" : "Сохраняем…"}
-            >
-              Дальше: проверка
-            </BusyLabel>
-          </button>
-
           <FormFieldError message={submitError ?? undefined} messageClassName="text-center" />
+
+          <WizardActionBar>
+            <button
+              type="submit"
+              form="create-tracks-form"
+              disabled={!isValid || isSubmitting || isUploadingWav || isWavTransferActive}
+              className="create-flow-submit-target omf-btn-primary h-[52px] w-full text-[16px] font-medium"
+            >
+              <BusyLabel
+                busy={isUploadingWav || isWavTransferActive || isSubmitting}
+                busyText={isUploadingWav || isWavTransferActive ? "Загружаем WAV…" : "Сохраняем…"}
+              >
+                Дальше: проверка
+              </BusyLabel>
+            </button>
+          </WizardActionBar>
         </form>
       )}
     </CreateShell>

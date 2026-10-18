@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Disc3, MessageCircle, Music2, Radio } from "lucide-react";
+import { WizardToggleRow } from "./WizardToggleRow";
 import { useCreateReleaseDraftStore } from "@/features/release/createRelease/store";
 import type { ArtistLinksState } from "@/lib/artist-links";
 import { EMPTY_ARTIST_LINKS } from "@/lib/artist-links";
@@ -63,7 +64,6 @@ export function ArtistProfileLinksSection() {
   }, [hasProfiles]);
 
   const toggleProfiles = (next: boolean) => {
-    hapticMap.impactLight();
     setHasProfiles(next);
     if (!next) {
       setReleaseArtistLinks({ ...EMPTY_ARTIST_LINKS });
@@ -71,36 +71,14 @@ export function ArtistProfileLinksSection() {
   };
 
   return (
-    <div ref={panelRef} className="min-w-0 space-y-3 border-t border-omf-line pt-5">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
-        <label
-          htmlFor="artist-has-profiles"
-          className="min-w-0 cursor-pointer text-[15px] leading-snug text-omf-ink"
-        >
-          У меня уже есть профили на площадках
-        </label>
-        <button
-          id="artist-has-profiles"
-          type="button"
-          role="switch"
-          aria-checked={hasProfiles}
-          onClick={() => toggleProfiles(!hasProfiles)}
-          className={`relative inline-flex h-8 w-[52px] shrink-0 items-center justify-start rounded-full px-[3px] transition-colors ${
-            hasProfiles ? "bg-omf-ultra" : "bg-omf-line-strong"
-          }`}
-        >
-          <motion.span
-            layout
-            transition={{ type: "spring", stiffness: 500, damping: 32 }}
-            animate={{ x: hasProfiles ? 22 : 0 }}
-            className="h-6 w-6 rounded-full bg-white"
-          />
-        </button>
-      </div>
-      <p className="text-[13px] leading-relaxed text-omf-graphite">
-        Если ты только начинаешь, оставь выключенным: ссылки не обязательны. Если включишь, добавь
-        хотя бы одну ссылку на свой профиль.
-      </p>
+    <div ref={panelRef} className="min-w-0 space-y-3">
+      <WizardToggleRow
+        id="artist-has-profiles"
+        label="У меня есть профили на площадках"
+        hint={hasProfiles ? "Добавь хотя бы одну ссылку на свой профиль" : "Если только начинаешь, оставь выключенным"}
+        checked={hasProfiles}
+        onChange={toggleProfiles}
+      />
 
       <AnimatePresence initial={false}>
         {hasProfiles && (
@@ -111,11 +89,10 @@ export function ArtistProfileLinksSection() {
             transition={{ type: "spring", bounce: 0, duration: 0.32 }}
             className="overflow-hidden"
           >
-            <div className="flex flex-col gap-4 border-t border-omf-line pt-4">
-              {FIELDS.map(({ key, label, Icon, placeholder }) => (
+            <div className="flex flex-col gap-4 pt-1">
+              {FIELDS.map(({ key, label, placeholder }) => (
                 <div key={key} className="min-w-0 space-y-1">
-                  <label className="flex items-center gap-2 text-[13px] text-omf-graphite">
-                    <Icon className="h-3.5 w-3.5 text-omf-faint" aria-hidden />
+                  <label className="block text-[13px] text-omf-graphite">
                     {label}
                   </label>
                   <input

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/AuthGuard";
 import { MultiLinkReleaseRow } from "@/components/MultiLinkReleaseRow";
 import { PullRefreshBrand } from "@/components/PullRefreshBrand";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { LibraryReleaseSkeletonGrid } from "@/components/ui/LibrarySkeleton";
 import { getReleaseDisplayTitle } from "@/repositories/releases.repo";
 import { useReleases } from "@/lib/hooks/useReleases";
@@ -14,6 +15,15 @@ import { hapticMap } from "@/lib/haptic-map";
 import { cn } from "@/lib/utils";
 
 type SortMode = "date_desc" | "date_asc" | "title";
+
+const SORT_OPTIONS: { id: SortMode; label: string }[] = [
+  { id: "date_desc", label: "Сначала новые" },
+  { id: "date_asc", label: "Сначала старые" },
+  { id: "title", label: "По названию" }
+];
+
+/** Поиск и сортировка нужны, когда ссылок много; на коротком списке всё видно сразу. */
+const SEARCH_MIN_LINKS = 6;
 
 function normalizeSearch(s: string): string {
   return s.trim().toLowerCase();
@@ -67,56 +77,52 @@ function MultiLinksPageInner() {
   return (
     <div className="mx-auto min-h-app w-full max-w-lg px-1 pb-40 pt-6 text-omf-ink">
       <PullRefreshBrand />
-      <header className="mb-6">
-        <p className="text-[13px] text-omf-graphite">Ссылки на выпущенные релизы</p>
-        <h1 className="mt-1 text-[40px] font-extrabold leading-[0.92] tracking-[-0.045em]">Ссылки</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-omf-graphite">
-          Одна ссылка на все площадки. Отправляй её слушателям или вставляй в соцсети.
-        </p>
-      </header>
+      <ScreenHeader
+        label="Готовые релизы"
+        title="Ссылки"
+        intro="Одна ссылка на все площадки. Копируй и отправляй слушателям."
+      />
 
-      <div className="mb-4">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Название или артист"
-          aria-label="Поиск по ссылкам"
-          className="omf-focus min-h-[48px] w-full rounded-control border border-omf-line bg-omf-surface px-4 py-3 text-[16px] text-omf-ink outline-none placeholder:text-omf-faint focus:border-omf-ultra"
-          autoComplete="off"
-        />
-      </div>
+      {withLinks.length >= SEARCH_MIN_LINKS ? (
+        <>
+          <div className="mb-4">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Название или артист"
+              aria-label="Поиск по ссылкам"
+              className="omf-focus min-h-[48px] w-full rounded-control border border-omf-line bg-omf-surface px-4 py-3 text-[16px] text-omf-ink outline-none placeholder:text-omf-faint focus:border-omf-ultra"
+              autoComplete="off"
+            />
+          </div>
 
-      <div
-        className="mb-2 flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        role="tablist"
-        aria-label="Порядок"
-      >
-        {(
-          [
-            { id: "date_desc" as const, label: "Сначала новые" },
-            { id: "date_asc" as const, label: "Сначала старые" },
-            { id: "title" as const, label: "По названию" }
-          ] as const
-        ).map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            role="tab"
-            aria-selected={sort === opt.id}
-            onClick={() => {
-              hapticMap.impactLight();
-              setSort(opt.id);
-            }}
-            className={cn(
-              "omf-focus shrink-0 rounded-full px-3.5 py-1.5 text-[13px] transition-colors",
-              sort === opt.id ? "bg-omf-ink font-medium text-omf-bg" : "text-omf-graphite hover:text-omf-ink"
-            )}
+          <div
+            className="mb-4 flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            role="tablist"
+            aria-label="Порядок"
           >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                role="tab"
+                aria-selected={sort === opt.id}
+                onClick={() => {
+                  hapticMap.impactLight();
+                  setSort(opt.id);
+                }}
+                className={cn(
+                  "omf-focus shrink-0 rounded-full px-3.5 py-1.5 text-[13px] transition-colors",
+                  sort === opt.id ? "bg-omf-ink font-medium text-omf-bg" : "text-omf-graphite hover:text-omf-ink"
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
 
       {error && (
         <p className="mb-4 text-[14px] text-omf-red">
@@ -149,7 +155,7 @@ function MultiLinksPageInner() {
           )}
         </div>
       ) : (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-2">
           {filtered.map((r, i) => (
             <MultiLinkReleaseRow
               key={r.id}

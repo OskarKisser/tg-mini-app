@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   CalendarClock,
   ChevronRight,
+  Compass,
   CircleDot,
   FileAudio,
   ImageIcon,
@@ -221,10 +222,10 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     id: "where-to-open",
     title: "Где что открыть",
-    icon: ChevronRight,
+    icon: Compass,
     iconClassName: "text-omf-graphite",
-    searchText: "библиотека мультиссылки настройки где открыть",
-    tooltipText: "Быстрые ссылки: Библиотека, Мультиссылки и Настройки.",
+    searchText: "релизы ссылки профиль настройки пригласить друга где открыть",
+    tooltipText: "Быстрые ссылки: Релизы, Ссылки и Профиль.",
     tone: "gradient",
     content: (
       <ul className="space-y-2.5 text-[15px] text-omf-graphite">
@@ -233,17 +234,17 @@ export const FAQ_ITEMS: FaqItem[] = [
             href="/library"
             className="omf-focus inline-flex items-center gap-1 font-medium text-omf-ultra-text hover:text-omf-ink"
           >
-            Библиотека релизов
+            Релизы
             <ChevronRight className="h-3.5 w-3.5" />
           </Link>{" "}
-          — черновики, очередь, готовые.
+          — черновики, проверка, готовые.
         </li>
         <li>
           <Link
             href="/multi-links"
             className="omf-focus inline-flex items-center gap-1 font-medium text-omf-ultra-text hover:text-omf-ink"
           >
-            Мультиссылки
+            Ссылки
             <ChevronRight className="h-3.5 w-3.5" />
           </Link>{" "}
           — после выпуска, когда ссылки выдаст модерация.
@@ -253,9 +254,10 @@ export const FAQ_ITEMS: FaqItem[] = [
             href="/settings"
             className="omf-focus inline-flex items-center gap-1 font-medium text-omf-ultra-text hover:text-omf-ink"
           >
-            Настройки аккаунта
+            Профиль
             <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
+          </Link>{" "}
+          — приглашение друга и выход из веб-версии.
         </li>
       </ul>
     ),

@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, RefreshCcw } from "lucide-react";
 import useSWR from "swr";
 import { PullRefreshBrand } from "@/components/PullRefreshBrand";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { AdminTabs } from "@/components/admin/AdminTabs";
 import { ReleaseSleeve } from "@/components/ReleaseSleeve";
 import { AdminModerationQueueSkeleton } from "@/components/ui/LibrarySkeleton";
 import { fetchAdminCatalog } from "@/features/admin/catalog";
@@ -25,7 +26,6 @@ import { SWR_LIST_OPTIONS } from "@/lib/swr-config";
 import { getTelegramUserId, initTelegramWebApp } from "@/lib/telegram";
 import { cn } from "@/lib/utils";
 import { withRequestTimeout } from "@/lib/withRequestTimeout";
-import { RefreshIcon } from "@/components/RefreshIcon";
 
 type CatalogTab = "tracks" | "artists";
 
@@ -100,48 +100,27 @@ export default function AdminCatalogPage() {
 
   return (
     <div className="mx-auto min-h-app max-w-lg px-1 pb-40 pt-4 text-omf-ink lg:max-w-3xl">
-      <PullRefreshBrand />
+      <PullRefreshBrand onRefresh={() => void mutate(undefined, { revalidate: true })} />
 
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <Link
-          href="/admin"
-          className="omf-focus -ml-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-[14px] text-omf-graphite transition-colors hover:text-omf-ink"
-        >
-          <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
-          Очередь
-        </Link>
-        <button
-          type="button"
-          onClick={() => void mutate(undefined, { revalidate: true })}
-          disabled={isValidating}
-          aria-label="Обновить каталог"
-          className="omf-focus flex h-10 w-10 items-center justify-center rounded-full text-omf-graphite transition-colors hover:bg-omf-surface hover:text-omf-ink disabled:opacity-50"
-        >
-          <RefreshIcon icon={RefreshCcw} spinning={isValidating} />
-        </button>
-      </div>
-
-      <header className="mb-6">
-        <p className="text-[13px] text-omf-graphite">Всё, что приняли и отгрузили на площадки</p>
-        <h1 className="mt-1 text-[40px] font-extrabold leading-[0.92] tracking-[-0.045em]">Каталог</h1>
-      </header>
+      <ScreenHeader className="mb-4" label="Всё, что отгрузили на площадки" title="Модерация" />
+      <AdminTabs active="catalog" />
 
       {errorMessage && <p className="mb-4 text-[14px] text-omf-red">{errorMessage}</p>}
       {showSkeleton && <AdminModerationQueueSkeleton rows={4} />}
 
       {data ? (
-        <dl className="mb-6 grid grid-cols-2 gap-x-4 gap-y-4 border-y border-omf-line py-4 sm:grid-cols-4">
+        <dl className="mb-4 grid grid-cols-4 gap-1.5">
           {(
             [
-              ["Треков", summary.tracks],
-              ["Релизов", summary.releases],
-              ["Артистов", summary.artists],
-              ["Треков за месяц", summary.tracksThisMonth]
+              ["трека", summary.tracks],
+              ["релиза", summary.releases],
+              ["артиста", summary.artists],
+              ["за месяц", summary.tracksThisMonth]
             ] as const
           ).map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-[13px] text-omf-graphite">{label}</dt>
-              <dd className="mt-0.5 text-[28px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">{value}</dd>
+            <div key={label} className="rounded-[14px] bg-omf-surface px-2.5 py-2.5">
+              <dd className="text-[20px] font-bold leading-none tracking-[-0.02em] tabular-nums">{value}</dd>
+              <dt className="mt-1 text-[11px] leading-tight text-omf-graphite">{label}</dt>
             </div>
           ))}
         </dl>
@@ -207,14 +186,14 @@ export default function AdminCatalogPage() {
       )}
 
       {tab === "tracks" && tracks.length > 0 ? (
-        <ul>
+        <ul className="flex flex-col gap-2">
           {tracks.slice(0, visibleCount).map((t) => (
-            <li key={t.key} className="border-b border-omf-line">
+            <li key={t.key}>
               <Link
                 href={`/admin/release/${t.releaseId}`}
-                className="omf-focus -mx-1 flex items-center gap-3 rounded-[10px] px-1 py-3 transition-colors hover:bg-omf-surface"
+                className="omf-focus flex items-center gap-3 rounded-[18px] bg-omf-surface p-2.5 transition-transform active:scale-[0.99]"
               >
-                <div className="w-11 shrink-0">
+                <div className="w-14 shrink-0">
                   <ReleaseSleeve
                     seed={t.releaseId}
                     title={t.releaseTitle}
@@ -225,7 +204,7 @@ export default function AdminCatalogPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate text-[15px] font-bold leading-tight tracking-[-0.01em]">{t.title}</span>
+                    <span className="truncate text-[16px] font-semibold leading-tight tracking-[-0.01em]">{t.title}</span>
                     {t.explicit ? (
                       <span
                         className="shrink-0 rounded-[4px] bg-omf-surface-2 px-1 text-[10px] font-bold leading-[16px] text-omf-graphite"
@@ -240,8 +219,8 @@ export default function AdminCatalogPage() {
                     {t.featuring.length > 0 ? ` feat. ${t.featuring.join(", ")}` : ""}
                   </p>
                   <p className="mt-0.5 truncate text-[12px] text-omf-faint">
-                    {t.releaseType === "single" ? "Сингл" : `${TYPE_LABEL[t.releaseType]} «${t.releaseTitle}»`} · принят{" "}
-                    {formatAcceptedDate(t.acceptedAt)}
+                    {t.releaseType === "single" ? "сингл" : `${TYPE_LABEL[t.releaseType].toLowerCase()} «${t.releaseTitle}»`}
+                    , принят {formatAcceptedDate(t.acceptedAt)}
                   </p>
                 </div>
               </Link>
@@ -251,9 +230,9 @@ export default function AdminCatalogPage() {
       ) : null}
 
       {tab === "artists" && artists.length > 0 ? (
-        <ul>
+        <ul className="flex flex-col gap-2">
           {artists.slice(0, visibleCount).map((a) => (
-            <li key={artistKey(a.name)} className="border-b border-omf-line">
+            <li key={artistKey(a.name)}>
               <button
                 type="button"
                 onClick={() => {
@@ -262,17 +241,17 @@ export default function AdminCatalogPage() {
                   setTab("tracks");
                   window.scrollTo({ top: 0 });
                 }}
-                className="omf-focus -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-3 rounded-[10px] px-1 py-3 text-left transition-colors hover:bg-omf-surface"
+                className="omf-focus flex w-full items-center gap-3 rounded-[18px] bg-omf-surface p-3.5 text-left transition-transform active:scale-[0.99]"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-bold leading-tight tracking-[-0.01em]">{a.name}</p>
+                  <p className="truncate text-[16px] font-semibold leading-tight tracking-[-0.01em]">{a.name}</p>
                   <p className="mt-0.5 text-[13px] text-omf-graphite">
-                    {a.releases} {pluralRu(a.releases, ["релиз", "релиза", "релизов"])} · последний{" "}
+                    {a.releases} {pluralRu(a.releases, ["релиз", "релиза", "релизов"])}, последний{" "}
                     {formatAgoRu(a.lastAcceptedAt)}
                   </p>
                 </div>
                 <p className="shrink-0 text-right">
-                  <span className="block text-[20px] font-extrabold leading-none tabular-nums">{a.tracks}</span>
+                  <span className="block text-[20px] font-bold leading-none tabular-nums">{a.tracks}</span>
                   <span className="text-[12px] text-omf-faint">{pluralRu(a.tracks, ["трек", "трека", "треков"])}</span>
                 </p>
               </button>

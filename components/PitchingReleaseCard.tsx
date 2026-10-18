@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, ChevronDown, ImagePlus, Loader2, X } from "lucide-react";
+import { Check, ChevronRight, ImagePlus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ReleaseSleeve } from "@/components/ReleaseSleeve";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 import { savePressKit, uploadPressPhoto, validatePressPhoto } from "@/features/pitching/api";
 import {
   PRESS_PHOTO_MAX_MB,
@@ -28,44 +29,59 @@ type Props = {
   onSaved: (kit: PressKit | null) => void;
 };
 
-/** Релиз во вкладке «Питчинг»: шапка со статусом и форма пресс-релиза под ней. */
+/** Релиз во вкладке «Питчинг»: строка со статусом, по тапу форма пресс-релиза выезжает листом снизу. */
 export function PitchingReleaseCard({ releaseId, title, artist, coverUrl, kit, open, onToggle, onSaved }: Props) {
   const filled = isPressKitFilled(kit);
-  const bodyId = useId();
-
   return (
-    <article className="border-b border-omf-line">
+    <>
       <button
         type="button"
         onClick={() => {
           hapticMap.impactLight();
           onToggle();
         }}
-        aria-expanded={open}
-        aria-controls={bodyId}
-        className="omf-focus flex w-full items-center gap-3.5 py-4 text-left"
+        aria-haspopup="dialog"
+        className="omf-focus grid w-full grid-cols-[56px_1fr_18px] items-center gap-3.5 rounded-[18px] bg-omf-surface p-2.5 text-left transition-transform active:scale-[0.98]"
       >
-        <div className="w-[56px] shrink-0">
+        <span className="block w-14">
           <ReleaseSleeve seed={releaseId} title={title} artist={artist} coverUrl={coverUrl} size="thumb" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[17px] font-bold leading-tight tracking-[-0.02em]">{title}</p>
-          <p className="mt-0.5 truncate text-[14px] text-omf-graphite">{artist}</p>
-          <p className={cn("mt-1 text-[13px]", filled ? "text-omf-green" : "text-omf-ultra-text")}>
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[16px] font-semibold tracking-[-0.01em] text-omf-ink">{title}</span>
+          <span className={cn("mt-0.5 block truncate text-[12.5px]", filled ? "text-omf-green" : "text-omf-ultra-text")}>
             {filled ? "Отправлено модератору" : "Заполни пресс-релиз"}
-          </p>
-        </div>
-        <ChevronDown
-          className={cn("h-4 w-4 shrink-0 text-omf-graphite transition-transform", open && "rotate-180")}
-          aria-hidden
-        />
+          </span>
+        </span>
+        <ChevronRight className="h-[18px] w-[18px] text-omf-faint" aria-hidden />
       </button>
-      {open ? (
-        <div id={bodyId} className="pb-6">
-          <PressKitForm releaseId={releaseId} kit={kit} onSaved={onSaved} />
-        </div>
-      ) : null}
-    </article>
+
+      <BottomSheet
+        open={open}
+        onClose={onToggle}
+        header={(titleId) => (
+          <div className="grid grid-cols-[48px_1fr] items-center gap-3">
+            <span className="block w-12">
+              <ReleaseSleeve seed={releaseId} title={title} artist={artist} coverUrl={coverUrl} size="thumb" />
+            </span>
+            <span className="min-w-0">
+              <span id={titleId} className="block truncate text-[17px] font-semibold text-omf-ink">
+                {title}
+              </span>
+              <span className="block truncate text-[12.5px] text-omf-graphite">{artist}</span>
+            </span>
+          </div>
+        )}
+      >
+        <PressKitForm
+          releaseId={releaseId}
+          kit={kit}
+          onSaved={(next) => {
+            onSaved(next);
+            if (next) onToggle();
+          }}
+        />
+      </BottomSheet>
+    </>
   );
 }
 
@@ -145,14 +161,11 @@ function PressKitForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <label htmlFor={textId} className="text-[15px] font-medium">
-          Пресс-релиз
+        <label htmlFor={textId} className="text-[13px] text-omf-graphite">
+          О чём трек, настроение, на что похоже
         </label>
-        <p className="mt-1 text-[13px] leading-relaxed text-omf-graphite">
-          Пара предложений для редактора: о чём трек, настроение, на что похож, чем ты интересен.
-        </p>
         <textarea
           id={textId}
           value={text}
@@ -160,7 +173,7 @@ function PressKitForm({
           rows={5}
           placeholder="Например: «Летний поп-трек про первую поездку к морю…»"
           className={cn(
-            "omf-focus mt-3 w-full resize-none rounded-control border bg-omf-surface px-4 py-3 text-[16px] leading-relaxed text-omf-ink outline-none placeholder:text-omf-faint focus:border-omf-ultra",
+            "omf-focus mt-1.5 w-full resize-none rounded-control border bg-omf-bg px-4 py-3 text-[16px] leading-relaxed text-omf-ink outline-none placeholder:text-omf-faint focus:border-omf-ultra",
             tooLong ? "border-omf-red" : "border-omf-line"
           )}
           aria-describedby={`${textId}-count`}
@@ -174,10 +187,9 @@ function PressKitForm({
       </div>
 
       <div>
-        <p className="text-[15px] font-medium">Фото артиста</p>
-        <p className="mt-1 text-[13px] leading-relaxed text-omf-graphite">
-          На однотонном светлом фоне, без других людей и надписей, по пояс или в полный рост. Редактор вырежет тебя
-          для обложки плейлиста. JPG, PNG или WEBP до {PRESS_PHOTO_MAX_MB} МБ.
+        <p className="text-[13px] text-omf-graphite">Фото артиста</p>
+        <p className="mt-0.5 text-[12.5px] leading-snug text-omf-faint">
+          Светлый однотонный фон, по пояс, без надписей. JPG, PNG или WEBP до {PRESS_PHOTO_MAX_MB} МБ.
         </p>
         <input
           ref={fileRef}
@@ -234,7 +246,7 @@ function PressKitForm({
       <div>
         <button type="button" disabled={!canSave} onClick={() => void save()} className="omf-btn-primary w-full disabled:opacity-50">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-          {saving ? "Сохраняем…" : "Сохранить"}
+          {saving ? "Сохраняем…" : isPressKitFilled(kit) ? "Сохранить" : "Отправить модератору"}
         </button>
         {kit?.updated_at && !textChanged && !photoChanged ? (
           <p className="mt-2 inline-flex items-center gap-1.5 text-[13px] text-omf-graphite">
