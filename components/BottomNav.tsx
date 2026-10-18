@@ -50,8 +50,8 @@ const BottomNavInner = memo(function BottomNavInner() {
     [showAdminTab]
   );
 
-  // Hide on auth pages (after all hooks)
-  if (pathname === "/login") {
+  // Вход и мастер релиза — без меню: в мастере оно перекрывает «Дальше» и уводит посреди заполнения.
+  if (pathname === "/login" || pathname?.startsWith("/create")) {
     return null;
   }
 

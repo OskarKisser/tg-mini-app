@@ -12,7 +12,6 @@ function isTelegramMiniAppShellPath(p: string): boolean {
     "create",
     "settings",
     "dashboard",
-    "onboarding",
     "admin",
     "requirements"
   ];

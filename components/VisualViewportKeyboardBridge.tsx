@@ -22,7 +22,7 @@ export function VisualViewportKeyboardBridge() {
     if (!vv) return;
 
     const isTgShell = isTelegramClientShell();
-    /** Совпадает с `pb-28` в AdaptiveLayout — зона под нижнюю навигацию + FAB. */
+    /** Совпадает с `pb-28` в AdaptiveLayout — зона под нижнюю навигацию. */
     const navClearance = "7rem";
 
     const sync = () => {
