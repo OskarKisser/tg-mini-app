@@ -1,48 +1,9 @@
 "use client";
 
-import { AlertCircle, ArrowUp, Check, Clock, Pencil, Radio, type LucideIcon } from "lucide-react";
 import { ReleaseSleeve } from "@/components/ReleaseSleeve";
+import { StatusRing } from "@/components/library/StatusRing";
 import type { NextStepKind } from "@/lib/release-next-step";
 import { cn } from "@/lib/utils";
-
-/** Путь релиза в четыре этапа (отправлен → проверка → площадки → ссылка): сколько пройдено, цвет и знак. */
-const RING: Record<NextStepKind, { progress: number; color: string; Icon: LucideIcon }> = {
-  finish_draft: { progress: 0, color: "var(--omf-graphite)", Icon: Pencil },
-  submit: { progress: 0, color: "var(--omf-ink)", Icon: ArrowUp },
-  fix: { progress: 0.5, color: "var(--omf-red)", Icon: AlertCircle },
-  waiting: { progress: 0.5, color: "var(--omf-yellow)", Icon: Clock },
-  waiting_long: { progress: 0.5, color: "var(--omf-yellow)", Icon: Clock },
-  approved_no_link: { progress: 0.75, color: "var(--omf-green)", Icon: Radio },
-  approved_link: { progress: 1, color: "var(--omf-green)", Icon: Check },
-  unknown: { progress: 0, color: "var(--omf-faint)", Icon: Clock }
-};
-
-const R = 19;
-const CIRCUMFERENCE = 2 * Math.PI * R;
-
-function StatusRing({ kind }: { kind: NextStepKind }) {
-  const { progress, color, Icon } = RING[kind];
-  return (
-    <span className="relative flex h-11 w-11 shrink-0 items-center justify-center" aria-hidden>
-      <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90">
-        <circle cx="22" cy="22" r={R} fill="none" stroke="var(--omf-line-strong)" strokeWidth="3" />
-        {progress > 0 ? (
-          <circle
-            cx="22"
-            cy="22"
-            r={R}
-            fill="none"
-            stroke={color}
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeDasharray={`${CIRCUMFERENCE * progress} ${CIRCUMFERENCE}`}
-          />
-        ) : null}
-      </svg>
-      <Icon className="h-[17px] w-[17px]" style={{ color }} strokeWidth={1.8} />
-    </span>
-  );
-}
 
 export type ReleaseRowProps = {
   id: string;

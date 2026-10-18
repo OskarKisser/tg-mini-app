@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CreateShell } from "@/features/release/createRelease/components/CreateShell";
-import { StepGate } from "@/features/release/createRelease/components/StepGate";
 import { useCreateReleaseDraftStore } from "@/features/release/createRelease/store";
 import { SuccessReleaseModal } from "@/components/SuccessReleaseModal";
 import { getTelegramUserId, isTelegramMiniApp, triggerHaptic } from "@/lib/telegram";
@@ -19,11 +18,17 @@ export default function CreateSuccessPage() {
   const summary = useCreateReleaseDraftStore((s) => s.successSummary);
   const resetDraft = useCreateReleaseDraftStore((s) => s.resetDraft);
   const resetSubmissionUi = useCreateReleaseDraftStore((s) => s.resetSubmissionUi);
+  const hasHydrated = useCreateReleaseDraftStore((s) => s.hasHydrated);
 
   useEffect(() => {
     resetSubmissionUi();
     setNotifiesInTelegram(isTelegramMiniApp() || getTelegramUserId() != null);
   }, [resetSubmissionUi]);
+
+  /** Открыли «Готово» без отправки (закладка, назад после выхода) — показывать нечего, ведём в релизы. */
+  useEffect(() => {
+    if (hasHydrated && !summary && !leaving) router.replace("/library");
+  }, [hasHydrated, summary, leaving, router]);
 
   useEffect(() => {
     if (summary) {
@@ -51,12 +56,9 @@ export default function CreateSuccessPage() {
   return (
     <CreateShell>
       {!summary ? (
-        <StepGate
-          title="Нет данных об отправке"
-          description="Похоже, релиз ещё не отправлен. Начни с паспорта релиза."
-          actionLabel="Начать релиз"
-          onAction={() => router.push("/create/metadata")}
-        />
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <AppOrb state="composing" />
+        </div>
       ) : (
         <SuccessReleaseModal
           summary={summary}

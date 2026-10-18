@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Download, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ChevronDown, Copy, Download, Send } from "lucide-react";
 import { ReleaseSleeve } from "@/components/ReleaseSleeve";
 import { cn } from "@/lib/utils";
 import { parseCollaboratorsFromDb } from "@/lib/collaborators";
 import { debugInit } from "@/lib/debug";
-import { openSmartLink } from "@/lib/open-smart-link";
+import { openSmartLink, shareSmartLink } from "@/lib/open-smart-link";
 import { PERFORMANCE_LANGUAGE_LABELS, parsePerformanceLanguage } from "@/lib/performance-language";
 import { normalizeReleaseStatus } from "@/lib/release-status";
 import { shouldShowSmartLinkCta } from "@/lib/smart-link-cta";
@@ -23,7 +23,14 @@ import { ReleaseApiError } from "@/lib/api/release-client";
 import { RejectionNotice } from "@/components/RejectionNotice";
 import { describeRejection } from "@/lib/rejection-reasons";
 import { reopenRejectedRelease, resumeDraftFromRelease } from "@/features/release/createRelease/actions";
-import { getReleaseNextStep } from "@/lib/release-next-step";
+import {
+  DSP_REVIEW_DAYS_TEXT,
+  getReleaseNextStep,
+  MODERATION_SLA_HOURS,
+  type NextStepKind,
+  type ReleaseNextStep
+} from "@/lib/release-next-step";
+import { StatusRing } from "@/components/library/StatusRing";
 import { useCreateReleaseDraftStore } from "@/features/release/createRelease/store";
 import { hapticMap } from "@/lib/haptic-map";
 import { toast } from "sonner";
@@ -104,6 +111,45 @@ function formatFeaturingProducers(collaboratorsRaw: unknown): string | null {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
+/** Заголовок рядом с кольцом: для проверки — сколько уже ждём («На проверке 5 ч»). */
+function statusHeadline(status: ReleaseNextStep): { title: string } {
+  if (status.kind === "waiting") return { title: status.cardLine };
+  return { title: status.title };
+}
+
+/** Одна строка под заголовком статуса; подробности — в «Помощи». */
+function statusLine(kind: NextStepKind, notifiesInTelegram: boolean): string {
+  const where = notifiesInTelegram ? "сюда и в Telegram" : "сюда";
+  switch (kind) {
+    case "approved_link":
+      return "Релиз на площадках. Отправь ссылку слушателям.";
+    case "approved_no_link":
+      return `Ушёл на площадки. Ссылку пришлём ${where} через ${DSP_REVIEW_DAYS_TEXT}.`;
+    case "waiting":
+      return `Обычно до ${MODERATION_SLA_HOURS} часов. Решение придёт ${where}.`;
+    case "waiting_long":
+      return `Обычно это до ${MODERATION_SLA_HOURS} часов. Напиши нам, посмотрим, что случилось.`;
+    case "fix":
+      return "Исправь замечание и отправь релиз снова.";
+    case "finish_draft":
+      return "Продолжи с того места, где остановился, и отправь на проверку.";
+    case "submit":
+      return "Файлы загружены, осталось отправить на проверку.";
+    default:
+      return "Обнови экран чуть позже.";
+  }
+}
+
+async function copySmartLink(link: string): Promise<void> {
+  hapticMap.impactLight();
+  try {
+    await navigator.clipboard.writeText(link);
+    toast.success("Ссылка скопирована");
+  } catch {
+    toast.error("Не получилось скопировать. Зажми ссылку под кнопкой и скопируй вручную.");
+  }
+}
+
 const RELEASE_DETAILS_TIMEOUT_MS = 12000;
 
 export default function ReleaseDetailsClient() {
@@ -116,6 +162,7 @@ export default function ReleaseDetailsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fixing, setFixing] = useState(false);
+  const [dataOpen, setDataOpen] = useState(false);
 
   useEffect(() => {
     debugInit("release/details", "init start");
@@ -313,8 +360,7 @@ export default function ReleaseDetailsClient() {
     );
   }
 
-  const canonical = normalizeReleaseStatus(release.status);
-  const displayTitle = getReleaseDisplayTitle(release);
+  const displayTitle = getReleaseDisplayTitle(release) || "Без названия";
   const genreLine = [release.genre?.trim(), release.sub_genre?.trim()].filter(Boolean).join(", ");
   const releaseDateLabel = formatReleaseDateRu(release.release_date ?? null);
   const langLabel = PERFORMANCE_LANGUAGE_LABELS[parsePerformanceLanguage(release.performance_language)];
@@ -326,9 +372,8 @@ export default function ReleaseDetailsClient() {
       ? release.smart_link.trim()
       : null;
 
-  const passportRows: { label: string; value: string }[] = [
-    { label: "Формат", value: formatReleaseTypeLabel(release.release_type) }
-  ];
+  const typeLabel = formatReleaseTypeLabel(release.release_type);
+  const passportRows: { label: string; value: string }[] = [{ label: "Формат", value: typeLabel }];
   if (genreLine.length > 0) passportRows.push({ label: "Жанр", value: genreLine });
   if (releaseDateLabel) passportRows.push({ label: "Дата выхода", value: releaseDateLabel });
   passportRows.push({ label: "Язык", value: langLabel });
@@ -340,68 +385,99 @@ export default function ReleaseDetailsClient() {
   if (isrc) passportRows.push({ label: "ISRC", value: isrc });
   const upc = release.upc?.trim();
   if (upc) passportRows.push({ label: "UPC", value: upc });
+  /** Свёрнутая строка «Данные релиза»: формат и дата без года. */
+  const dataSummary = [typeLabel, releaseDateLabel?.replace(/\s\d{4}$/, "")].filter(Boolean).join(", ");
 
+  const notifiesInTelegram = userId != null;
   const status = getReleaseNextStep({
     status: release.status,
     smartLink,
     submittedAt: release.submitted_at,
-    notifiesInTelegram: userId != null
+    notifiesInTelegram
   });
+  const headline = statusHeadline(status);
 
   return shell(
     <>
       {backButton}
 
-      <div className="mx-auto w-[72%] max-w-[300px]">
+      <div className="mx-auto w-[58%] max-w-[232px]">
         <ReleaseSleeve
           seed={release.id}
           title={displayTitle}
           artist={release.artist_name}
           coverUrl={release.artwork_url}
-          status={canonical}
           size="hero"
           priority
         />
       </div>
 
-      <h1 className="mt-7 break-words text-center text-[32px] font-extrabold leading-[0.95] tracking-[-0.04em]">
+      <h1 className="mt-5 break-words text-center text-[28px] font-bold leading-none tracking-[-0.045em]">
         {displayTitle}
       </h1>
-      <p className="mt-2 text-center text-[15px] text-omf-graphite">{release.artist_name}</p>
+      <p className="mt-1.5 text-center text-[14px] text-omf-graphite">{release.artist_name}</p>
 
-      {canonical === "failed" ? (
-        <RejectionNotice
-          className="mt-8"
-          summary={describeRejection({
-            adminNotes: release.admin_notes,
-            errorMessage: release.error_message,
-            rejectionReasons: release.rejection_reasons
-          })}
-          fixing={fixing}
-          onFix={() => void handleFixRejected(release.id)}
-        />
-      ) : (
-      <section
-        aria-labelledby="release-status-title"
-        className={cn(
-          "mt-8 rounded-control border p-4",
-          status.tone === "warn" ? "border-omf-yellow" : "border-omf-line"
-        )}
-      >
-        <h2 id="release-status-title" className="text-[16px] font-bold tracking-tight">
-          {status.title}
-        </h2>
-        <p className="mt-1.5 whitespace-pre-wrap text-[14px] leading-relaxed text-omf-graphite">{status.body}</p>
-        {smartLink ? (
-          <button
-            type="button"
-            onClick={() => openSmartLink(smartLink)}
-            className="omf-btn-primary mt-4 w-full"
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden />
-            Открыть ссылку на релиз
-          </button>
+      <section aria-labelledby="release-status-title" className="mt-6">
+        <div className="grid grid-cols-[52px_1fr] items-center gap-3.5">
+          <StatusRing kind={status.kind} size={52} />
+          <div className="min-w-0">
+            <h2 id="release-status-title" className="text-[17px] font-semibold tracking-[-0.02em]">
+              {headline.title}
+            </h2>
+            <p className="mt-0.5 text-[13.5px] leading-snug text-omf-graphite">
+              {statusLine(status.kind, notifiesInTelegram)}
+            </p>
+          </div>
+        </div>
+
+        {status.kind === "fix" ? (
+          <RejectionNotice
+            className="mt-4 rounded-[14px] border-0 bg-[rgba(229,72,77,0.1)] p-3.5"
+            showTitle={false}
+            summary={describeRejection({
+              adminNotes: release.admin_notes,
+              errorMessage: release.error_message,
+              rejectionReasons: release.rejection_reasons
+            })}
+            fixing={fixing}
+            onFix={() => void handleFixRejected(release.id)}
+          />
         ) : null}
+
+        {smartLink ? (
+          <>
+            <div className="mt-4 grid grid-cols-[1fr_52px] gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  hapticMap.impactLight();
+                  shareSmartLink(smartLink, `${release.artist_name} — ${displayTitle}`);
+                }}
+                className="omf-btn-primary h-[52px] w-full font-medium"
+              >
+                <Send className="h-[18px] w-[18px]" aria-hidden />
+                Поделиться ссылкой
+              </button>
+              <button
+                type="button"
+                onClick={() => void copySmartLink(smartLink)}
+                aria-label="Скопировать ссылку"
+                className="omf-focus flex h-[52px] items-center justify-center rounded-control bg-omf-surface text-omf-ink transition-transform active:scale-95"
+              >
+                <Copy className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => openSmartLink(smartLink)}
+              className="omf-focus mx-auto mt-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] text-omf-ultra-text hover:text-omf-ink"
+            >
+              {smartLink.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </>
+        ) : null}
+
         {status.kind === "waiting_long" ? (
           <Link href="/requirements" className="omf-btn-secondary mt-4 w-full">
             Написать в поддержку
@@ -412,32 +488,25 @@ export default function ReleaseDetailsClient() {
             type="button"
             onClick={() => void handleResumeDraft(release.id)}
             disabled={fixing}
-            className="omf-btn-primary mt-4 w-full disabled:opacity-50"
+            className="omf-btn-primary mt-4 h-[52px] w-full font-medium disabled:opacity-50"
           >
             {fixing ? "Открываем…" : "Продолжить"}
           </button>
         ) : null}
       </section>
-      )}
 
-      {sortedTracks.length > 0 ? (
-        <section aria-labelledby="release-tracks-title" className="mt-8">
-          <h2 id="release-tracks-title" className="text-[13px] text-omf-graphite">
-            {sortedTracks.length > 1 ? `Треки, ${sortedTracks.length}` : "Трек"}
-          </h2>
-          <ol className="mt-1">
+      <div className="mt-6 border-t border-omf-line">
+        {sortedTracks.length > 1 ? (
+          <ol aria-label={`Треки, ${sortedTracks.length}`}>
             {sortedTracks.map((t, i) => {
               const dur = formatTrackDurationSec(t.duration);
-              const name = t.title.trim() || "Без названия";
               return (
                 <li
                   key={`${t.index}-${i}`}
                   className="flex items-baseline gap-3 border-b border-omf-line py-3 text-[15px]"
                 >
-                  {sortedTracks.length > 1 ? (
-                    <span className="w-5 shrink-0 tabular-nums text-omf-faint">{i + 1}</span>
-                  ) : null}
-                  <span className="min-w-0 flex-1 truncate">{name}</span>
+                  <span className="w-4 shrink-0 tabular-nums text-omf-faint">{i + 1}</span>
+                  <span className="min-w-0 flex-1 truncate">{t.title.trim() || "Без названия"}</span>
                   {t.explicit ? (
                     <span
                       className="shrink-0 rounded-[4px] bg-omf-surface-2 px-1.5 py-0.5 text-[11px] font-bold text-omf-graphite"
@@ -451,37 +520,48 @@ export default function ReleaseDetailsClient() {
               );
             })}
           </ol>
-        </section>
-      ) : null}
+        ) : null}
 
-      <section aria-labelledby="release-passport-title" className="mt-8">
-        <h2 id="release-passport-title" className="text-[13px] text-omf-graphite">
-          Паспорт релиза
-        </h2>
-        <dl className="mt-1">
-          {passportRows.map((row) => (
-            <div
-              key={row.label}
-              className="flex items-baseline justify-between gap-4 border-b border-omf-line py-3"
-            >
-              <dt className="shrink-0 text-[14px] text-omf-graphite">{row.label}</dt>
-              <dd className="min-w-0 break-words text-right text-[15px]">{row.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      {release.audio_url ? (
-        <a
-          href={release.audio_url}
-          target="_blank"
-          rel="noreferrer"
-          className="omf-btn-secondary mt-6 w-full"
+        <button
+          type="button"
+          onClick={() => setDataOpen((v) => !v)}
+          aria-expanded={dataOpen}
+          aria-controls="release-data"
+          className="omf-focus flex w-full items-center justify-between gap-4 border-b border-omf-line py-4 text-left text-[15px]"
         >
-          <Download className="h-4 w-4" aria-hidden />
-          Скачать аудио
-        </a>
-      ) : null}
+          Данные релиза
+          <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-omf-graphite">
+            <span className="truncate">{dataSummary}</span>
+            <ChevronDown
+              className={cn("h-4 w-4 shrink-0 text-omf-faint transition-transform", dataOpen && "rotate-180")}
+              aria-hidden
+            />
+          </span>
+        </button>
+        {dataOpen ? (
+          <div id="release-data">
+            <dl>
+              {passportRows.map((row) => (
+                <div key={row.label} className="flex items-baseline justify-between gap-4 border-b border-omf-line py-3">
+                  <dt className="shrink-0 text-[14px] text-omf-graphite">{row.label}</dt>
+                  <dd className="min-w-0 break-words text-right text-[15px]">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+            {release.audio_url ? (
+              <a
+                href={release.audio_url}
+                target="_blank"
+                rel="noreferrer"
+                className="omf-focus mt-3 inline-flex items-center gap-1.5 rounded-full py-1 text-[14px] text-omf-ultra-text hover:text-omf-ink"
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                Скачать аудио
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </>
   );
 }

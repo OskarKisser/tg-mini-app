@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useIsTelegramMiniApp } from "@/lib/hooks/useIsTelegramMiniApp";
 import { BottomNavHost } from "./BottomNavHost";
-import { FAB } from "./FAB";
 import { Sidebar } from "./Sidebar";
 
 /**
@@ -54,7 +53,6 @@ export function AdaptiveLayout({ children }: { children: React.ReactNode }) {
         <div className="lg:hidden">
           <BottomNavHost />
         </div>
-        <FAB />
       </div>
     );
   }
@@ -75,7 +73,6 @@ export function AdaptiveLayout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
         <BottomNavHost />
-        <FAB />
       </div>
     );
   }
@@ -95,7 +92,6 @@ export function AdaptiveLayout({ children }: { children: React.ReactNode }) {
       <div className="lg:hidden">
         <BottomNavHost />
       </div>
-      <FAB />
     </div>
   );
 }
