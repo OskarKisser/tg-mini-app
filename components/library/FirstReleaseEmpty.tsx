@@ -20,8 +20,10 @@ export function FirstReleaseEmpty({ artistName, onCreate, referralDiscountPendin
         type="button"
         onClick={onCreate}
         aria-label="Создать первый релиз"
-        className="omf-focus omf-first-cover w-[68%] max-w-[264px] text-left transition-transform duration-150 active:scale-[0.98]"
+        className="omf-focus relative block aspect-square w-[68%] max-w-[264px] rounded-[3px] text-left transition-transform duration-150 active:scale-[0.98]"
       >
+        {/* Надписи лежат поверх, а не внутри: в отражении остаётся только свет обложки, без перевёрнутого текста. */}
+        <span className="omf-first-cover absolute inset-0" aria-hidden />
         <span className="absolute left-4 top-[15px] z-[1] text-[11.5px] text-white/70">Первый сингл</span>
         <span className="absolute bottom-[15px] left-4 right-4 z-[1] truncate text-[13px] font-semibold tracking-[-0.01em] text-white">
           {artistName}
