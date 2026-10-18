@@ -395,6 +395,8 @@ function AdminPageInner() {
       {view === "queue" ? (
         <>
       <div className="mb-4 flex items-center gap-2">
+        {/* Фильтр «С ошибками» нужен, только когда такие релизы есть; иначе это второй ряд пилюль без пользы. */}
+        {filterCounts.with_errors > 0 ? (
         <div
           className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="tablist"
@@ -424,6 +426,9 @@ function AdminPageInner() {
             );
           })}
         </div>
+        ) : (
+          <div className="flex-1" />
+        )}
         {selectMode || moderationQueueFiltered.length > 1 ? (
           <button
             type="button"
@@ -443,6 +448,7 @@ function AdminPageInner() {
         ) : null}
       </div>
 
+      {moderationQueue.length >= 4 ? (
       <div className="mb-4">
         <input
           type="search"
@@ -453,6 +459,7 @@ function AdminPageInner() {
           className="omf-focus min-h-[48px] w-full rounded-control border border-omf-line bg-omf-surface px-4 py-3 text-[16px] text-omf-ink placeholder:text-omf-faint focus:border-omf-ultra focus:outline-none"
         />
       </div>
+      ) : null}
 
       {selectMode && moderationQueueFiltered.length > 0 ? (
         <div className="mb-1 flex items-center justify-between gap-3 text-[13px]">
