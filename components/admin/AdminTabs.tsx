@@ -8,7 +8,7 @@ export type AdminTab = "queue" | "links" | "history" | "catalog";
 
 const TABS: { key: AdminTab; label: string; href: string }[] = [
   { key: "queue", label: "Очередь", href: "/admin" },
-  { key: "links", label: "Ждут ссылку", href: "/admin?view=links" },
+  { key: "links", label: "Ссылки", href: "/admin?view=links" },
   { key: "history", label: "История", href: "/admin/history" },
   { key: "catalog", label: "Каталог", href: "/admin/catalog" }
 ];
@@ -37,7 +37,7 @@ export function AdminTabs({
             aria-current={isActive ? "page" : undefined}
             onClick={() => hapticMap.impactLight()}
             className={cn(
-              "omf-focus flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors",
+              "omf-focus flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-[12.5px] transition-colors",
               isActive
                 ? "border-omf-ink bg-omf-ink font-semibold text-omf-bg"
                 : "border-omf-line text-omf-graphite hover:text-omf-ink"

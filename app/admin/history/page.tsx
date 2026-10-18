@@ -131,7 +131,7 @@ export default function AdminModerationHistoryPage() {
   }
 
   return (
-    <div className="mx-auto min-h-app max-w-lg px-1 pb-40 pt-4 text-omf-ink lg:max-w-3xl">
+    <div className="mx-auto min-h-app max-w-lg px-1 pb-40 pt-6 text-omf-ink lg:max-w-3xl">
       <PullRefreshBrand onRefresh={() => void mutate(undefined, { revalidate: true })} />
 
       <ScreenHeader className="mb-4" label="Принятые и возвращённые" title="Модерация" />
