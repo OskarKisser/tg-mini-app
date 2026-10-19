@@ -50,8 +50,11 @@ export function useKeyboardVisible(): boolean {
       return true;
     };
 
+    // На десктопе экранной клавиатуры нет: фокус в поле ничего не перекрывает.
+    const touch = window.matchMedia("(pointer: coarse)").matches;
+
     const onFocusIn = (e: Event) => {
-      if (isField(e.target)) setOpen(true);
+      if (touch && isField(e.target)) setOpen(true);
     };
 
     const onFocusOut = () => {

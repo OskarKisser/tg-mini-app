@@ -27,19 +27,14 @@ async function navigateTo(page: Page, path: string) {
   await page.goto(`${path}${BASE_PARAMS}`);
 }
 
-/** Дата не раньше чем через 5 дней (правило паспорта) — берём с запасом. */
-function futureReleaseDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 30);
-  return d.toISOString().slice(0, 10);
-}
-
 async function fillMetadataMinimum(page: Page) {
   await page.getByPlaceholder(/имя на обложке/i).fill("Regression Artist");
   await page.getByPlaceholder(/основное название релиза/i).fill("Regression Release");
   await page.locator("select[name='language']").selectOption({ index: 1 });
   await page.locator("select[name='genre']").selectOption("Techno");
-  await page.locator("input[name='releaseDate']").fill(futureReleaseDate());
+  // Барабан открывается на самой ранней доступной дате — её и берём.
+  await page.locator("#meta-release-date").click();
+  await page.getByRole("button", { name: "Готово" }).click();
   await page.getByPlaceholder("Иванов Иван Иванович").fill("Регрессов Тест Тестович");
   await page.getByPlaceholder(/ник или фио битмейкера/i).fill("Regression Beatmaker");
   await page.locator("select[name='licenseType']").selectOption("own");
