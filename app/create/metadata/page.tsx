@@ -29,6 +29,7 @@ import {
 import { logClientError } from "@/lib/logger";
 import { firstRhfErrorMessage } from "@/lib/rhf-first-error";
 import { hapticMap } from "@/lib/haptic-map";
+import { WheelDatePicker } from "@/components/ui/WheelDatePicker";
 import { toast } from "sonner";
 import { getTelegramUserId } from "@/lib/telegram";
 import {
@@ -644,21 +645,26 @@ function CreateMetadataPageInner() {
                 <label htmlFor="meta-release-date" className={`block ${WIZARD_FIELD_LABEL_CLASS}`}>
                   Дата выхода
                 </label>
-                <div
-                  className={`${GLASS_DATE_WRAP_BASE} ${borderForDateWrap(
-                    Boolean(errors.releaseDate),
-                    touchedFields.releaseDate,
-                    dirtyFields.releaseDate
-                  )}`}
-                >
-                  <input
-                    id="meta-release-date"
-                    type="date"
-                    min={minReleaseDate}
-                    {...register("releaseDate")}
-                    className="glass-date-native cursor-pointer bg-transparent text-[16px] text-omf-ink [color-scheme:dark]"
-                  />
-                </div>
+                <Controller
+                  name="releaseDate"
+                  control={control}
+                  render={({ field }) => (
+                    <WheelDatePicker
+                      id="meta-release-date"
+                      title="Дата выхода"
+                      hint={`Не раньше ${minReleaseDateLabel}: площадкам нужно время на модерацию`}
+                      value={field.value}
+                      min={minReleaseDate}
+                      onChange={(v) => field.onChange(v)}
+                      onBlur={field.onBlur}
+                      className={`${GLASS_DATE_WRAP_BASE} ${borderForDateWrap(
+                        Boolean(errors.releaseDate),
+                        touchedFields.releaseDate,
+                        dirtyFields.releaseDate
+                      )}`}
+                    />
+                  )}
+                />
                 <FormFieldError message={errors.releaseDate?.message} />
                 <p className="text-[12px] leading-snug text-omf-faint">Не раньше {minReleaseDateLabel}</p>
               </div>

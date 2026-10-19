@@ -42,5 +42,12 @@ export const hapticMap = {
     } catch {
       /* ignore */
     }
+  },
+  selectionChanged: (): void => {
+    try {
+      hapticFeedback()?.selectionChanged?.();
+    } catch {
+      /* ignore */
+    }
   }
 };
