@@ -16,7 +16,7 @@ async function handleAwaitingLink(request: NextRequest): Promise<Response> {
 
   const { data, error } = await guard.supabase
     .from("releases")
-    .select("id, title, track_name, artist_name, artwork_url, telegram_username, upc, created_at")
+    .select("id, title, track_name, artist_name, artwork_url, telegram_username, upc, release_date, created_at")
     .eq("status", "ready")
     .or("smart_link.is.null,smart_link.eq.")
     .order("created_at", { ascending: true })
@@ -34,6 +34,7 @@ async function handleAwaitingLink(request: NextRequest): Promise<Response> {
     artwork_url: string | null;
     telegram_username: string | null;
     upc: string | null;
+    release_date: string | null;
     created_at: string;
   }[];
   const acceptedAt = await loadAcceptedAt(
@@ -49,6 +50,7 @@ async function handleAwaitingLink(request: NextRequest): Promise<Response> {
       artwork_url: r.artwork_url,
       telegram_username: r.telegram_username,
       upc: r.upc,
+      release_date: r.release_date ?? null,
       accepted_at: acceptedAt.get(r.id) ?? r.created_at
     }))
     // Дольше всех ждущие — сверху.

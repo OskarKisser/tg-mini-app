@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { SPRING_UI } from "@/lib/motion-spring";
-import { normalizeUpc } from "@/lib/admin-release-publish";
+import { formatReleaseDateDayMonthRu, normalizeReleaseDate, normalizeUpc } from "@/lib/admin-release-publish";
 import { DSP_REVIEW_DAYS_TEXT } from "@/lib/release-next-step";
 import { describePayment, isPaymentConfirmed } from "@/lib/release-payment";
 import { BusyLabel } from "@/components/BusyLabel";
@@ -18,12 +18,15 @@ type Props = {
   mode: ApproveModalMode;
   /** releases.payment_status: при «Принять» без подтверждённой оплаты — предупреждение. */
   paymentStatus?: string | null;
+  /** releases.release_date: подставляем в поле, чтобы перед отправкой ссылки сверить дату выхода. */
+  releaseDate?: string | null;
   busy: boolean;
   onClose: () => void;
   /** Принять без ссылки. */
   onAccept: (releaseId: string) => void;
   /** Ссылка на пресейв (+ UPC по желанию): принять сразу со ссылкой или добавить к принятому. */
-  onSubmitLink: (releaseId: string, smartLink: string, upc: string) => void;
+  /** releaseDate — только если модератор её поменял, иначе пустая строка. */
+  onSubmitLink: (releaseId: string, smartLink: string, upc: string, releaseDate: string) => void;
 };
 
 function validateLink(raw: string): string | null {
@@ -40,6 +43,7 @@ export function AdminApproveSmartLinkModal({
   releaseId,
   mode,
   paymentStatus,
+  releaseDate: currentReleaseDate,
   busy,
   onClose,
   onAccept,
@@ -48,6 +52,8 @@ export function AdminApproveSmartLinkModal({
   const open = releaseId != null;
   const [smartLink, setSmartLink] = useState("");
   const [upc, setUpc] = useState("");
+  const initialDate = /^\d{4}-\d{2}-\d{2}/.exec(currentReleaseDate?.trim() ?? "")?.[0] ?? "";
+  const [releaseDate, setReleaseDate] = useState(initialDate);
   const [localError, setLocalError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -56,9 +62,10 @@ export function AdminApproveSmartLinkModal({
     if (open) {
       setSmartLink("");
       setUpc("");
+      setReleaseDate(initialDate);
       setLocalError(null);
     }
-  }, [open, releaseId]);
+  }, [open, releaseId, initialDate]);
 
   const link = smartLink.trim();
   const isLinkMode = mode === "link";
@@ -82,12 +89,13 @@ export function AdminApproveSmartLinkModal({
     }
     try {
       normalizeUpc(upc);
+      normalizeReleaseDate(releaseDate);
     } catch (e: unknown) {
       setLocalError(e instanceof Error ? e.message : "Проверь UPC.");
       return;
     }
     setLocalError(null);
-    onSubmitLink(releaseId, link, upc);
+    onSubmitLink(releaseId, link, upc, releaseDate !== initialDate ? releaseDate : "");
   };
 
   const primaryLabel = isLinkMode
@@ -184,6 +192,26 @@ export function AdminApproveSmartLinkModal({
                   placeholder="12 или 13 цифр"
                   className="mt-2 min-h-[52px] w-full rounded-control border border-omf-line bg-omf-bg px-4 py-3 text-[16px] tabular-nums text-omf-ink outline-none placeholder:text-omf-faint focus:border-omf-ultra disabled:opacity-50"
                 />
+
+                <label htmlFor="admin-release-date" className="mt-4 block text-[13px] text-omf-graphite">
+                  Дата выхода — придёт артисту в сообщении
+                </label>
+                <input
+                  id="admin-release-date"
+                  type="date"
+                  disabled={busy}
+                  value={releaseDate}
+                  onChange={(e) => {
+                    setReleaseDate(e.target.value);
+                    setLocalError(null);
+                  }}
+                  className="mt-2 min-h-[52px] w-full rounded-control border border-omf-line bg-omf-bg px-4 py-3 text-[16px] tabular-nums text-omf-ink outline-none focus:border-omf-ultra disabled:opacity-50"
+                />
+                {releaseDate !== initialDate && initialDate ? (
+                  <p className="mt-1.5 text-[13px] text-omf-yellow">
+                    Было {formatReleaseDateDayMonthRu(initialDate)} — сохраним новую дату в релизе.
+                  </p>
+                ) : null}
               </>
             ) : null}
 

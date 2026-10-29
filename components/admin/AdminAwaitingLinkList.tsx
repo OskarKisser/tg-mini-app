@@ -8,6 +8,7 @@ import { formatAgoRu } from "@/lib/admin-release-metadata";
 import { DSP_REVIEW_DAYS_TEXT } from "@/lib/release-next-step";
 import { cn } from "@/lib/utils";
 import type { AdminAwaitingLinkRelease } from "@/types/admin";
+import { formatReleaseDateDayMonthRu } from "@/lib/admin-release-publish";
 
 const COLLAPSED_COUNT = 5;
 
@@ -49,6 +50,7 @@ export function AdminAwaitingLinkList({
                 <p className="mt-0.5 truncate text-[13px] text-omf-graphite">{r.artist_name}</p>
                 <p className="mt-0.5 text-[12px] text-omf-faint">
                   принят {formatAgoRu(r.accepted_at)}
+                  {r.release_date ? ` · выход ${formatReleaseDateDayMonthRu(r.release_date) ?? r.release_date}` : ""}
                   {r.upc ? ` · UPC ${r.upc}` : ""}
                 </p>
               </div>

@@ -46,6 +46,8 @@ export type AdminAwaitingLinkRelease = {
   artwork_url: string | null;
   telegram_username: string | null;
   upc: string | null;
+  /** Желаемая дата выхода `YYYY-MM-DD`: сверить перед отправкой ссылки. */
+  release_date: string | null;
   /** Когда приняли (лог), для старых релизов — дата создания. */
   accepted_at: string;
 };

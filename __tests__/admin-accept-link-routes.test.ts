@@ -96,6 +96,33 @@ describe("ссылка на пресейв (publish-release-smart-link)", () => 
     expect(String(notifyArtist.mock.calls[0][1])).toContain("принят и уже прошёл");
   });
 
+  it("новая дата выхода: пишем в релиз и в сообщение артисту", async () => {
+    const db = useDb({ id: ID, title: "LAFFERA", status: "ready", smart_link: null, telegram_id: "1", release_date: "2026-10-30" });
+    const { POST } = await import("@/app/api/admin/publish-release-smart-link/route");
+    const res = await POST(post("/api/admin/publish-release-smart-link", body({ releaseDate: "2026-11-06" })));
+    expect(res.status).toBe(200);
+    const upd = db.calls.find((c) => c.table === "releases" && c.op === "update");
+    expect(upd?.payload).toMatchObject({ release_date: "2026-11-06" });
+    const text = String(notifyArtist.mock.calls[0][1]);
+    expect(text).toContain("6 ноября");
+    expect(text).not.toContain("30 октября");
+  });
+
+  it("без новой даты — дату не трогаем, в сообщении текущая", async () => {
+    const db = useDb({ id: ID, title: "LAFFERA", status: "ready", smart_link: null, telegram_id: "1", release_date: "2026-10-30" });
+    const { POST } = await import("@/app/api/admin/publish-release-smart-link/route");
+    expect((await POST(post("/api/admin/publish-release-smart-link", body()))).status).toBe(200);
+    const upd = db.calls.find((c) => c.table === "releases" && c.op === "update");
+    expect(upd?.payload).not.toHaveProperty("release_date");
+    expect(String(notifyArtist.mock.calls[0][1])).toContain("30 октября");
+  });
+
+  it("кривая дата — 400", async () => {
+    useDb({ id: ID, status: "ready" });
+    const { POST } = await import("@/app/api/admin/publish-release-smart-link/route");
+    expect((await POST(post("/api/admin/publish-release-smart-link", body({ releaseDate: "06.11" })))).status).toBe(400);
+  });
+
   it("правка уже выданной ссылки — без повторного сообщения", async () => {
     useDb({ id: ID, title: "LAFFERA", status: "ready", smart_link: "https://band.link/old", telegram_id: "1" });
     const { POST } = await import("@/app/api/admin/publish-release-smart-link/route");
@@ -136,5 +163,45 @@ describe("GET /api/admin/awaiting-link", () => {
     const rel = db.calls.find((c) => c.table === "releases");
     expect(rel?.filters).toContainEqual(["eq", "status", "ready"]);
     expect(rel?.filters).toContainEqual(["or", "smart_link.is.null,smart_link.eq."]);
+  });
+});
+
+describe("PATCH /api/admin/releases/[releaseId] — перенос даты", () => {
+  const patch = (body: unknown) =>
+    [
+      new NextRequest(`http://localhost/api/admin/releases/${ID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }),
+      { params: { releaseId: ID } }
+    ] as const;
+
+  it("сохраняет дату и по флагу пишет артисту", async () => {
+    notifyArtist.mockResolvedValue(true);
+    const db = useDb({ id: ID, title: "Лето", status: "ready", telegram_id: "1", release_date: "2026-10-30" });
+    const { PATCH } = await import("@/app/api/admin/releases/[releaseId]/route");
+    const res = await PATCH(...patch({ releaseDate: "2026-11-06", notify: true }));
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { notified: boolean }).notified).toBe(true);
+    const upd = db.calls.find((c) => c.table === "releases" && c.op === "update");
+    expect(upd?.payload).toEqual({ release_date: "2026-11-06" });
+    expect(String(notifyArtist.mock.calls[0][1])).toContain("6 ноября");
+  });
+
+  it("без notify — молча", async () => {
+    useDb({ id: ID, title: "Лето", status: "ready", telegram_id: "1" });
+    const { PATCH } = await import("@/app/api/admin/releases/[releaseId]/route");
+    expect((await PATCH(...patch({ releaseDate: "2026-11-06" }))).status).toBe(200);
+    expect(notifyArtist).not.toHaveBeenCalled();
+  });
+
+  it("кривая дата — 400, нет релиза — 404", async () => {
+    const { PATCH } = await import("@/app/api/admin/releases/[releaseId]/route");
+    useDb({ id: ID });
+    expect((await PATCH(...patch({ releaseDate: "2026-02-30" }))).status).toBe(400);
+    const empty = createSupabaseMock(() => ({ data: null, error: null }));
+    guard.mockResolvedValue({ ok: true, supabase: empty.client });
+    expect((await PATCH(...patch({ releaseDate: "2026-11-06" }))).status).toBe(404);
   });
 });
