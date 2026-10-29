@@ -13,7 +13,7 @@ jobs:
   # ─── Job 1: Lint + TypeScript ──────────────────────────────────────────────
   lint-typecheck:
     name: Lint & TypeCheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +35,7 @@ jobs:
   # ─── Job 2: Unit tests (Vitest) ───────────────────────────────────────────
   unit-tests:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: lint-typecheck
     env:
       # Webhook tests require the secret env var to be set for the missing-env case to work
@@ -66,7 +66,7 @@ jobs:
   # ─── Job 3: E2E tests (Playwright) ────────────────────────────────────────
   e2e:
     name: E2E Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: lint-typecheck
     env:
       # E2E не ходят в настоящий Supabase: тесты подменяют ответы API сами.

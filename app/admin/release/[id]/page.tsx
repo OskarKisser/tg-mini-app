@@ -12,6 +12,7 @@ import { AdminColleagueFormCopy } from "@/components/admin/AdminColleagueFormCop
 import { AdminReleaseDownloads } from "@/components/admin/AdminReleaseDownloads";
 import { AdminReleaseMetadataCard } from "@/components/admin/AdminReleaseMetadataCard";
 import { AdminPaymentPanel } from "@/components/admin/AdminPaymentPanel";
+import { AdminReleaseDatePanel } from "@/components/admin/AdminReleaseDatePanel";
 import { AdminDeleteReleaseSheet } from "@/components/admin/AdminDeleteReleaseSheet";
 import { AdminPressKitPanel } from "@/components/admin/AdminPressKitPanel";
 import { isPitchingOpen, type PressKit } from "@/lib/press-kit";
@@ -184,10 +185,10 @@ export default function AdminReleaseDetailPage() {
 
   /** Ссылка на пресейв: из очереди — принять сразу со ссылкой; у принятого — добавить ссылку. */
   const handleSubmitLink = useCallback(
-    async (id: string, smartLink: string, upc: string, fromQueue: boolean) => {
+    async (id: string, smartLink: string, upc: string, releaseDate: string, fromQueue: boolean) => {
       setBusy(true);
       try {
-        await publishReleaseWithSmartLink(id, "RELEASED", smartLink, upc);
+        await publishReleaseWithSmartLink(id, "RELEASED", smartLink, upc, releaseDate);
         triggerHaptic("success");
         setApproveModal(null);
         if (fromQueue) {
@@ -319,7 +320,8 @@ export default function AdminReleaseDetailPage() {
         busy={approveModal != null && busy}
         onClose={() => setApproveModal(null)}
         onAccept={(id) => void handleAccept(id)}
-        onSubmitLink={(id, link, upc) => void handleSubmitLink(id, link, upc, approveModal?.mode !== "link")}
+        releaseDate={release?.release_date ?? null}
+        onSubmitLink={(id, link, upc, date) => void handleSubmitLink(id, link, upc, date, approveModal?.mode !== "link")}
       />
 
       <AdminDeleteReleaseSheet
@@ -411,6 +413,11 @@ export default function AdminReleaseDetailPage() {
               <p className="mt-2 text-[13px] text-omf-graphite">Сначала проверь, что это исправлено.</p>
             </aside>
           ) : null}
+
+          <AdminReleaseDatePanel
+            release={release}
+            onChange={(fields) => setRelease((prev) => (prev ? { ...prev, ...fields } : prev))}
+          />
 
           <AdminPaymentPanel
             release={release}

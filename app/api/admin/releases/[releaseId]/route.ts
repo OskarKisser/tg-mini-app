@@ -9,6 +9,10 @@ import { getReleaseReferral, type ReleaseReferral } from "@/lib/server/referrals
 import type { ReleaseRecord, ReleaseTrackRow } from "@/repositories/releases.repo";
 import { loadPressKit } from "@/lib/server/press-kit";
 import type { PressKit } from "@/lib/press-kit";
+import { normalizeReleaseDate } from "@/lib/admin-release-publish";
+import { notifyArtist } from "@/lib/server/artist-notify";
+import { releaseDateChangedMessage } from "@/lib/server/release-notify-texts";
+import { getReleaseDisplayTitle } from "@/repositories/releases.repo";
 
 export const dynamic = "force-dynamic";
 
@@ -163,4 +167,80 @@ export async function DELETE(
   routeContext: { params: { releaseId: string } }
 ): Promise<Response> {
   return handleDeleteAdminRelease(request, routeContext);
+}
+
+const patchBodySchema = z.object({
+  releaseDate: z.string().min(1).max(32),
+  /** Написать артисту в бот о новой дате. */
+  notify: z.boolean().optional()
+});
+
+/**
+ * Перенос даты выхода из админки: артист передумал, пока релиз шёл через модерацию,
+ * или площадки поставили другую. Без этого в приложении и в сообщениях остаётся старая дата.
+ */
+async function handlePatchAdminRelease(
+  request: NextRequest,
+  routeContext: { params: { releaseId: string } }
+): Promise<Response> {
+  const guard = await requireAdminSupabaseClient(
+    request,
+    getTelegramAuthContextFromRequest(request)
+  );
+  if (!guard.ok) return guard.response;
+
+  const parsedParams = paramsSchema.safeParse(routeContext.params);
+  if (!parsedParams.success) {
+    return NextResponse.json({ ok: false, error: "Некорректный ID релиза." }, { status: 400 });
+  }
+
+  let json: unknown;
+  try {
+    json = await request.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
+  }
+  const parsed = patchBodySchema.safeParse(json);
+  if (!parsed.success) {
+    return NextResponse.json({ ok: false, error: "Некорректное тело запроса." }, { status: 400 });
+  }
+
+  let releaseDate: string;
+  try {
+    releaseDate = normalizeReleaseDate(parsed.data.releaseDate) as string;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Некорректная дата.";
+    return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+  }
+
+  const { releaseId } = parsedParams.data;
+  const { data: updated, error: updErr } = await guard.supabase
+    .from("releases")
+    .update({ release_date: releaseDate })
+    .eq("id", releaseId)
+    .select("*")
+    .maybeSingle();
+
+  if (updErr) {
+    console.error("[admin/releases PATCH] update:", updErr.message);
+    return NextResponse.json({ ok: false, error: "Не удалось сохранить дату." }, { status: 500 });
+  }
+  if (!updated) {
+    return NextResponse.json({ ok: false, error: "Релиз не найден." }, { status: 404 });
+  }
+
+  const rec = updated as ReleaseRecord;
+  await invalidateMyReleasesCache(rec as Record<string, unknown>);
+  let notified = false;
+  if (parsed.data.notify) {
+    notified = await notifyArtist(rec, releaseDateChangedMessage(getReleaseDisplayTitle(rec), releaseDate));
+  }
+  return NextResponse.json({ ok: true, release: rec, notified });
+}
+
+export async function PATCH(
+  request: NextRequest,
+  routeContext: { params: { releaseId: string } }
+): Promise<Response> {
+  return handlePatchAdminRelease(request, routeContext);
 }

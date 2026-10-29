@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdminSupabaseClient } from "@/lib/admin-release-api-guard";
 import { getTelegramAuthContextFromRequest } from "@/lib/api/with-telegram-auth";
-import { assertHttpsUrl, mapAdminPublishStatusToDb, normalizeUpc } from "@/lib/admin-release-publish";
+import { assertHttpsUrl, mapAdminPublishStatusToDb, normalizeReleaseDate, normalizeUpc } from "@/lib/admin-release-publish";
 import { getReleaseDisplayTitle, type ReleaseRecord } from "@/repositories/releases.repo";
 import { notifyArtist } from "@/lib/server/artist-notify";
 import { invalidateMyReleasesCache } from "@/lib/server/release-list-cache";
@@ -16,7 +16,9 @@ const bodySchema = z.object({
   newStatus: z.string().min(1),
   smartLink: z.string().min(1).max(2048),
   /** UPC от дистрибьютора (необязательно), пишется в `releases.upc`. */
-  upc: z.string().max(32).optional()
+  upc: z.string().max(32).optional(),
+  /** Дата выхода `YYYY-MM-DD`, если артист её перенёс; пишется в `releases.release_date` и в сообщение. */
+  releaseDate: z.string().max(32).optional()
 });
 
 /**
@@ -48,10 +50,12 @@ async function handlePublishReleaseSmartLink(request: NextRequest): Promise<Resp
   let dbStatus: ReturnType<typeof mapAdminPublishStatusToDb>;
   let normalizedUrl: string;
   let upc: string | null;
+  let releaseDate: string | null;
   try {
     dbStatus = mapAdminPublishStatusToDb(parsed.data.newStatus);
     normalizedUrl = assertHttpsUrl(parsed.data.smartLink);
     upc = normalizeUpc(parsed.data.upc);
+    releaseDate = normalizeReleaseDate(parsed.data.releaseDate);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Некорректные данные.";
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
@@ -100,6 +104,7 @@ async function handlePublishReleaseSmartLink(request: NextRequest): Promise<Resp
       status: "ready",
       smart_link: normalizedUrl,
       ...(upc ? { upc } : {}),
+      ...(releaseDate ? { release_date: releaseDate } : {}),
       ...(acceptingNow ? { error_message: null, admin_notes: null } : {})
     })
     .eq("id", releaseId)
@@ -130,7 +135,10 @@ async function handlePublishReleaseSmartLink(request: NextRequest): Promise<Resp
   if (acceptingNow) await logAccepted(supabase, releaseId);
   // Поправили уже выданную ссылку — артиста второй раз не дёргаем.
   if (!hadLink) {
-    await notifyArtist(rec, linkReadyMessage(getReleaseDisplayTitle(rec), normalizedUrl, { acceptedNow: acceptingNow }));
+    await notifyArtist(rec, linkReadyMessage(getReleaseDisplayTitle(rec), normalizedUrl, {
+        acceptedNow: acceptingNow,
+        releaseDate: rec.release_date
+      }));
   }
   await deleteApprovedReleaseAudio(supabase, releaseId);
   return NextResponse.json({ ok: true, record: rec });

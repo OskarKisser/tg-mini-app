@@ -39,3 +39,28 @@ export function normalizeUpc(raw: string | null | undefined): string | null {
   }
   return digits;
 }
+
+/** Дата выхода из админки: строго `YYYY-MM-DD` и реальная дата; пусто — не меняем. */
+export function normalizeReleaseDate(raw: string | null | undefined): string | null {
+  const t = String(raw ?? "").trim();
+  if (!t) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  const d = m ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : null;
+  if (!m || !d || d.getUTCDate() !== Number(m[3]) || d.getUTCMonth() !== Number(m[2]) - 1) {
+    throw new Error("Дата выхода — в формате ГГГГ-ММ-ДД.");
+  }
+  return t;
+}
+
+const MONTHS_GENITIVE = [
+  "января", "февраля", "марта", "апреля", "мая", "июня",
+  "июля", "августа", "сентября", "октября", "ноября", "декабря"
+];
+
+/** «2026-11-06» → «6 ноября»; без локали, чтобы сервер и клиент писали одинаково. */
+export function formatReleaseDateDayMonthRu(raw: string | null | undefined): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw ?? "").trim());
+  if (!m) return null;
+  const month = MONTHS_GENITIVE[Number(m[2]) - 1];
+  return month ? `${Number(m[3])} ${month}` : null;
+}

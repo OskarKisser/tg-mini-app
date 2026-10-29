@@ -99,6 +99,7 @@ async function postPublishSmartLink(body: {
   newStatus: string;
   smartLink: string;
   upc?: string;
+  releaseDate?: string;
 }): Promise<ReleaseRecord> {
   const authHeaders = await getAdminApiAuthHeaders();
   const res = await fetch("/api/admin/publish-release-smart-link", {
@@ -146,10 +147,46 @@ export async function publishReleaseWithSmartLink(
   releaseId: string,
   newStatus: string,
   smartLink: string,
-  upc?: string
+  upc?: string,
+  /** Новая дата выхода `YYYY-MM-DD`; пусто — оставить как есть. */
+  releaseDate?: string
 ): Promise<ReleaseRecord> {
   await assertAdminAsync();
-  return postPublishSmartLink({ releaseId, newStatus, smartLink, ...(upc?.trim() ? { upc: upc.trim() } : {}) });
+  return postPublishSmartLink({
+    releaseId,
+    newStatus,
+    smartLink,
+    ...(upc?.trim() ? { upc: upc.trim() } : {}),
+    ...(releaseDate?.trim() ? { releaseDate: releaseDate.trim() } : {})
+  });
+}
+
+/** Перенести дату выхода. `notify` — написать артисту в бот. Возвращает, ушло ли сообщение. */
+export async function updateReleaseDate(
+  releaseId: string,
+  releaseDate: string,
+  notify: boolean
+): Promise<{ release: ReleaseRecord; notified: boolean }> {
+  await assertAdminAsync();
+  const authHeaders = await getAdminApiAuthHeaders();
+  const res = await fetch(`/api/admin/releases/${encodeURIComponent(releaseId)}`, {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: { Accept: "application/json", "Content-Type": "application/json", ...authHeaders },
+    body: JSON.stringify({ releaseDate, notify }),
+    cache: "no-store"
+  });
+  type Body = { ok?: boolean; error?: string; release?: ReleaseRecord; notified?: boolean };
+  let json: Body | null = null;
+  try {
+    json = (await res.json()) as Body;
+  } catch {
+    json = null;
+  }
+  if (!res.ok || json?.ok !== true || !json.release) {
+    throw new Error(json?.error || "Не удалось сохранить дату.");
+  }
+  return { release: json.release, notified: json.notified === true };
 }
 
 /** Напомнить артисту через бота, что релиз не отправлен. Бросает ошибку с понятным текстом. */

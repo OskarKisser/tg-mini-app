@@ -1,5 +1,6 @@
 import { escapeHtml } from "@/lib/telegram-bot.server";
 import { DSP_REVIEW_DAYS_TEXT } from "@/lib/release-next-step";
+import { formatReleaseDateDayMonthRu } from "@/lib/admin-release-publish";
 
 function safeTitle(title: string): string {
   const t = title.trim();
@@ -16,9 +17,22 @@ export function acceptedMessage(title: string): string {
 }
 
 /** Ссылка на пресейв готова (сразу при приёме или позже, после модерации площадок). */
-export function linkReadyMessage(title: string, link: string, opts: { acceptedNow: boolean }): string {
+export function linkReadyMessage(
+  title: string,
+  link: string,
+  opts: { acceptedNow: boolean; releaseDate?: string | null }
+): string {
   const head = opts.acceptedNow
     ? `✅ <b>Релиз «${safeTitle(title)}» принят и уже прошёл модерацию площадок.</b>`
     : `🔗 <b>Релиз «${safeTitle(title)}» прошёл модерацию площадок.</b>`;
-  return `${head}\n\nСсылка на пресейв: <a href="${escapeHtml(link)}">открыть</a>`;
+  // Дату пишем прямо в сообщении: артист сверяет её здесь, а не в анкете, где она могла устареть.
+  const date = formatReleaseDateDayMonthRu(opts.releaseDate);
+  const dateLine = date ? `Дата выхода: <b>${date}</b>\n` : "";
+  return `${head}\n\n${dateLine}Ссылка на пресейв: <a href="${escapeHtml(link)}">открыть</a>`;
+}
+
+/** Модератор перенёс дату выхода (по просьбе артиста или по ответу площадок). */
+export function releaseDateChangedMessage(title: string, releaseDate: string): string {
+  const date = formatReleaseDateDayMonthRu(releaseDate) ?? escapeHtml(releaseDate);
+  return `📅 <b>Дата выхода «${safeTitle(title)}» — ${date}.</b>\n\nМы обновили её в релизе.`;
 }

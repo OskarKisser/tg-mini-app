@@ -201,11 +201,11 @@ function AdminPageInner() {
   );
 
   const handleSubmitLink = useCallback(
-    async (releaseId: string, smartLink: string, upc: string) => {
+    async (releaseId: string, smartLink: string, upc: string, releaseDate: string) => {
       setBusyId(releaseId);
       setActionError(null);
       try {
-        await publishReleaseWithSmartLink(releaseId, "RELEASED", smartLink, upc);
+        await publishReleaseWithSmartLink(releaseId, "RELEASED", smartLink, upc, releaseDate);
         triggerHaptic("success");
         setApproveModal(null);
         await refreshAll();
@@ -372,7 +372,12 @@ function AdminPageInner() {
         busy={approveModal != null && busyId === approveModal.id}
         onClose={() => setApproveModal(null)}
         onAccept={(id) => void handleAccept(id)}
-        onSubmitLink={(id, link, upc) => void handleSubmitLink(id, link, upc)}
+        releaseDate={
+          moderationQueue.find((row) => row.release.id === approveModal?.id)?.release.release_date ??
+          awaitingLink?.find((row) => row.id === approveModal?.id)?.release_date ??
+          null
+        }
+        onSubmitLink={(id, link, upc, date) => void handleSubmitLink(id, link, upc, date)}
       />
 
       <AdminRejectModal
